@@ -1,0 +1,262 @@
+@import 'tailwindcss';
+
+/* ------------------------------------------------------------------ */
+/*  Pulse Budget design tokens — vibrant game UI                       */
+/*  Duolingo × Monopoly GO × Revolut. Dark mode is the hero mode.      */
+/* ------------------------------------------------------------------ */
+
+@theme {
+  --font-display: 'Baloo 2', 'Nunito', ui-rounded, system-ui, sans-serif;
+  --font-body: 'Nunito', ui-rounded, system-ui, sans-serif;
+
+  /* Brand palette (fixed, both modes) */
+  --color-violet: #7c3aed;
+  --color-violet-soft: #a78bfa;
+  --color-violet-deep: #5b21b6;
+  --color-lime: #a3e635;
+  --color-lime-deep: #65a30d;
+  --color-emerald: #34d399;
+  --color-coral: #ff5c7a;
+  --color-coral-deep: #e11d48;
+  --color-aqua: #22d3ee;
+  --color-aqua-deep: #0891b2;
+  --color-ember: #fb923c;
+  --color-sun: #facc15;
+  --color-gold: #ffd700;
+
+  /* Semantic surface tokens — overridden in light mode below */
+  --color-bg: #1a1033;
+  --color-bg-deep: #120a26;
+  --color-card: #251545;
+  --color-card-raised: #2e1c55;
+  --color-edge: #382363;
+  --color-edge-strong: #4a2f80;
+  --color-ink: #f5f0ff;
+  --color-ink-soft: #beb0e0;
+  --color-ink-faint: #8a7ab0;
+
+  /* Rank accent (swapped by data-theme on <html>) */
+  --color-accent: #7c3aed;
+  --color-accent-soft: #a78bfa;
+
+  --radius-card: 24px;
+  --radius-bubble: 18px;
+
+  --shadow-glow-lime: 0 0 28px rgba(163, 230, 53, 0.4);
+  --shadow-glow-violet: 0 0 28px rgba(124, 58, 237, 0.45);
+  --shadow-glow-aqua: 0 0 28px rgba(34, 211, 238, 0.4);
+  --shadow-glow-ember: 0 0 24px rgba(251, 146, 60, 0.45);
+  --shadow-glow-gold: 0 0 30px rgba(255, 215, 0, 0.45);
+
+  --animate-shine: shine 2.8s ease-in-out infinite;
+  --animate-pulse-win: pulse-win 2.2s ease-in-out infinite;
+  --animate-shake-warn: shake-warn 1.8s ease-in-out infinite;
+  --animate-flame: flame 0.9s ease-in-out infinite alternate;
+  --animate-shimmer: shimmer 2.4s linear infinite;
+  --animate-bounce-fab: bounce-fab 2.6s ease-in-out infinite;
+  --animate-pop-in: pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Light mode — soft cream, colours stay saturated */
+html.light {
+  --color-bg: #fff8f0;
+  --color-bg-deep: #f7ecdf;
+  --color-card: #ffffff;
+  --color-card-raised: #fffdf9;
+  --color-edge: #ecdfd0;
+  --color-edge-strong: #dcc9b4;
+  --color-ink: #2b2140;
+  --color-ink-soft: #6d5f93;
+  --color-ink-faint: #a294c4;
+}
+
+/* Rank accent themes — unlocked by levelling up */
+html[data-theme='rookie'] {
+  --color-accent: #7c3aed;
+  --color-accent-soft: #a78bfa;
+}
+html[data-theme='collector'] {
+  --color-accent: #84cc16;
+  --color-accent-soft: #a3e635;
+}
+html[data-theme='master'] {
+  --color-accent: #ff5c7a;
+  --color-accent-soft: #fda4af;
+}
+html[data-theme='wizard'] {
+  --color-accent: #22d3ee;
+  --color-accent-soft: #67e8f9;
+}
+html[data-theme='royalty'] {
+  --color-accent: #eab308;
+  --color-accent-soft: #ffd700;
+}
+
+@keyframes shine {
+  0% {
+    transform: translateX(-130%) skewX(-18deg);
+  }
+  55%,
+  100% {
+    transform: translateX(230%) skewX(-18deg);
+  }
+}
+
+@keyframes pulse-win {
+  0%,
+  100% {
+    text-shadow: 0 0 22px rgba(163, 230, 53, 0.35);
+    transform: scale(1);
+  }
+  50% {
+    text-shadow: 0 0 38px rgba(163, 230, 53, 0.65);
+    transform: scale(1.015);
+  }
+}
+
+@keyframes shake-warn {
+  0%,
+  86%,
+  100% {
+    transform: translateX(0);
+  }
+  88% {
+    transform: translateX(-3px) rotate(-0.4deg);
+  }
+  90% {
+    transform: translateX(3px) rotate(0.4deg);
+  }
+  92% {
+    transform: translateX(-3px);
+  }
+  94% {
+    transform: translateX(3px);
+  }
+  96% {
+    transform: translateX(-2px);
+  }
+  98% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes flame {
+  from {
+    transform: scale(1) rotate(-2deg);
+    filter: drop-shadow(0 0 6px rgba(251, 146, 60, 0.7));
+  }
+  to {
+    transform: scale(1.12) rotate(2deg);
+    filter: drop-shadow(0 0 12px rgba(250, 204, 21, 0.9));
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes bounce-fab {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  8% {
+    transform: translateY(-7px) scale(1.04);
+  }
+  16% {
+    transform: translateY(0) scale(0.98);
+  }
+  22% {
+    transform: translateY(-3px) scale(1.01);
+  }
+  28% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.7) translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Base                                                               */
+/* ------------------------------------------------------------------ */
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--color-bg);
+  color: var(--color-ink);
+  overscroll-behavior-y: none;
+  min-height: 100dvh;
+}
+
+/* Ambient glow blobs behind everything — makes neon pop on deep purple */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(42rem 42rem at 85% -8%, rgba(124, 58, 237, 0.28), transparent 60%),
+    radial-gradient(34rem 34rem at -12% 32%, rgba(34, 211, 238, 0.12), transparent 60%),
+    radial-gradient(30rem 30rem at 105% 88%, rgba(255, 92, 122, 0.1), transparent 60%);
+}
+
+html.light body::before {
+  background:
+    radial-gradient(42rem 42rem at 85% -8%, rgba(124, 58, 237, 0.1), transparent 60%),
+    radial-gradient(34rem 34rem at -12% 32%, rgba(34, 211, 238, 0.08), transparent 60%);
+}
+
+/* Utility helpers used across components */
+@utility text-gradient-win {
+  background: linear-gradient(100deg, #a3e635, #34d399 55%, #22d3ee);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility text-gradient-violet {
+  background: linear-gradient(100deg, #a78bfa, #7c3aed 50%, #22d3ee);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility text-gradient-gold {
+  background: linear-gradient(100deg, #fb923c, #facc15 45%, #ffd700 70%, #fff3b0);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Number pad digits shouldn't be selectable */
+@utility no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}

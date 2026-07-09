@@ -1,0 +1,40 @@
+{
+  "name": "pulse-budget",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Pulse Budget — a playful, game-flavoured personal budgeting PWA for ZAR",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "icons": "node scripts/make-icons.mjs"
+  },
+  "dependencies": {
+    "@fontsource/baloo-2": "^5.2.5",
+    "@fontsource/nunito": "^5.2.5",
+    "@supabase/supabase-js": "^2.50.0",
+    "canvas-confetti": "^1.9.3",
+    "framer-motion": "^11.18.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.1",
+    "zustand": "^5.0.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.11",
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/node": "^26.1.1",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.5.0",
+    "playwright": "^1.61.1",
+    "tailwindcss": "^4.1.11",
+    "typescript": "~5.8.3",
+    "vite": "^6.3.5",
+    "vite-plugin-pwa": "^1.0.0",
+    "vitest": "^3.2.4"
+  }
+}

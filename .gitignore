@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dev-dist/
+
+# Local env
+.env
+.env.local
+.env.*.local
+
+# Editor / OS
+.DS_Store
+*.local
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Supabase local dev
+supabase/.temp/
+supabase/.branches/

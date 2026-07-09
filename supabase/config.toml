@@ -1,0 +1,31 @@
+# Supabase local development config for Pulse Budget.
+# https://supabase.com/docs/guides/local-development/cli/config
+
+project_id = "pulse-budget"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+
+[db]
+port = 54322
+major_version = 15
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173"]
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+# Google OAuth: fill in your credentials, then enable.
+[auth.external.google]
+enabled = false
+client_id = ""
+secret = ""
+
+[functions.award-xp]
+verify_jwt = true
