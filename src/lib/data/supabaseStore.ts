@@ -72,6 +72,10 @@ export class SupabaseStore implements DataStore {
           ? {
               id: p.id,
               displayName: p.display_name,
+              surname: (p.surname as string) ?? '',
+              username: (p.username as string) ?? '',
+              email: (p.email as string) ?? '',
+              phone: (p.phone as string) ?? '',
               salaryCents: Number(p.salary_cents),
               payDate: p.pay_date,
               splits: p.splits,
@@ -255,6 +259,10 @@ export class SupabaseStore implements DataStore {
         row: {
           id: p.id,
           display_name: p.displayName,
+          surname: p.surname,
+          username: p.username,
+          email: p.email,
+          phone: p.phone,
           salary_cents: p.salaryCents,
           pay_date: p.payDate,
           splits: p.splits,

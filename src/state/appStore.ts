@@ -65,6 +65,10 @@ interface AppState {
   startDemo: () => Promise<void>
   createProfile: (params: {
     displayName: string
+    surname: string
+    username: string
+    email: string
+    phone: string
     salaryCents: number
     payDate: number
     splits: Profile['splits']
@@ -184,6 +188,10 @@ export function runHousekeeping(input: AppData, today: string, when: string): Ap
   if (!profile) return data
   profile.funFundName ??= 'date nights'
   profile.funFundNote ??= 'Fun Fund'
+  profile.surname ??= ''
+  profile.username ??= ''
+  profile.email ??= ''
+  profile.phone ??= ''
 
   /* 1 — materialise recurring items due since last time. */
   for (const item of data.recurring) {
@@ -405,6 +413,10 @@ export const useAppStore = create<AppState>((set, get) => {
       const today = todaySAST()
       const profile = makeDefaultProfile({
         displayName: params.displayName,
+        surname: params.surname,
+        username: params.username,
+        email: params.email,
+        phone: params.phone,
         salaryCents: params.salaryCents,
         payDate: params.payDate,
         splits: params.splits,

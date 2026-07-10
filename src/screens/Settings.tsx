@@ -36,10 +36,7 @@ export function Settings() {
         <h1 className="font-display font-extrabold text-2xl">Budget settings</h1>
       </div>
 
-      <NameRow
-        name={profile.displayName}
-        onSave={(displayName) => void updateProfile({ displayName })}
-      />
+      <AccountCard />
       <MoneyRow
         label="💼 Monthly salary"
         cents={profile.salaryCents}
@@ -56,47 +53,102 @@ export function Settings() {
 
 /* ------------------------------------------------------------------ */
 
-function NameRow({ name, onSave }: { name: string; onSave: (name: string) => void }) {
-  const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(name)
+function AccountCard() {
+  const profile = useAppStore((s) => s.data.profile)!
+  const updateProfile = useAppStore((s) => s.updateProfile)
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState({
+    displayName: '',
+    surname: '',
+    username: '',
+    email: '',
+    phone: '',
+  })
+
+  function openSheet() {
+    setDraft({
+      displayName: profile.displayName,
+      surname: profile.surname,
+      username: profile.username,
+      email: profile.email,
+      phone: profile.phone,
+    })
+    setOpen(true)
+  }
+
+  const valid =
+    draft.displayName.trim().length >= 2 &&
+    draft.surname.trim().length >= 2 &&
+    /^[a-zA-Z0-9_.]{3,20}$/.test(draft.username.trim()) &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(draft.email.trim()) &&
+    draft.phone.replace(/\D/g, '').length >= 9
+
+  async function save() {
+    if (!valid) return
+    await updateProfile({
+      displayName: draft.displayName.trim(),
+      surname: draft.surname.trim(),
+      username: draft.username.trim().toLowerCase(),
+      email: draft.email.trim().toLowerCase(),
+      phone: draft.phone.trim(),
+    })
+    setOpen(false)
+  }
+
+  const field = (key: keyof typeof draft, label: string, type = 'text') => (
+    <label className="block">
+      <p className="text-xs font-bold uppercase tracking-widest text-ink-faint mb-1">{label}</p>
+      <input
+        value={draft[key]}
+        onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
+        type={type}
+        maxLength={40}
+        className="w-full px-4 py-3 rounded-2xl bg-bg-deep border border-edge outline-none
+                   font-semibold focus:border-accent"
+      />
+    </label>
+  )
 
   return (
     <Card className="mb-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="font-display font-extrabold text-sm">🙋 Your name</p>
-        {editing ? (
-          <div className="flex gap-2 items-center">
-            <input
-              autoFocus
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              maxLength={24}
-              className="w-36 px-3 py-2 rounded-xl bg-bg-deep border border-edge outline-none
-                         font-display font-extrabold text-right focus:border-accent"
-            />
-            <Button3D
-              size="sm"
-              variant="lime"
-              onClick={() => {
-                if (value.trim()) onSave(value.trim())
-                setEditing(false)
-              }}
-            >
-              ✓
-            </Button3D>
-          </div>
-        ) : (
-          <button
-            onClick={() => {
-              setValue(name)
-              setEditing(true)
-            }}
-            className="font-display font-extrabold text-accent-soft"
-          >
-            {name} ✎
-          </button>
-        )}
+        <div className="min-w-0">
+          <p className="font-display font-extrabold text-sm truncate">
+            🙋 {profile.displayName} {profile.surname}
+            {profile.username && (
+              <span className="text-accent-soft font-body font-bold text-xs ml-1.5">
+                @{profile.username}
+              </span>
+            )}
+          </p>
+          <p className="text-[10px] text-ink-faint font-bold truncate">
+            {[profile.email, profile.phone].filter(Boolean).join(' · ') || 'Add your details'}
+          </p>
+        </div>
+        <button onClick={openSheet} className="font-display font-extrabold text-accent-soft shrink-0">
+          ✎
+        </button>
       </div>
+
+      <Sheet open={open} onClose={() => setOpen(false)} title="Your account">
+        <div className="flex flex-col gap-3 pb-2">
+          <div className="grid grid-cols-2 gap-3">
+            {field('displayName', 'First name')}
+            {field('surname', 'Surname')}
+          </div>
+          {field('username', 'Username')}
+          {field('email', 'Email', 'email')}
+          {field('phone', 'Phone', 'tel')}
+          {!valid && (
+            <p className="text-xs text-coral font-bold">
+              All fields are required — username 3+ chars, valid email, 9+ digit phone.
+            </p>
+          )}
+          <Button3D full disabled={!valid} onClick={() => void save()}>
+            Save account
+          </Button3D>
+        </div>
+      </Sheet>
     </Card>
   )
 }

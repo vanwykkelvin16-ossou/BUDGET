@@ -25,7 +25,12 @@ export type IncomeSource =
 
 export interface Profile {
   id: string
+  /** First name — used for greetings. */
   displayName: string
+  surname: string
+  username: string
+  email: string
+  phone: string
   salaryCents: number
   /** Day of month the salary lands and the budget cycle starts (1–31). */
   payDate: number

@@ -62,7 +62,14 @@ export function Profile() {
           <span className="font-display font-extrabold text-xs text-white">LV{progress.level}</span>
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="font-display font-extrabold text-lg truncate">{profile.displayName}</h2>
+          <h2 className="font-display font-extrabold text-lg truncate">
+            {profile.displayName} {profile.surname}
+            {profile.username && (
+              <span className="text-accent-soft font-body font-bold text-xs ml-1.5 align-middle">
+                @{profile.username}
+              </span>
+            )}
+          </h2>
           <p className="text-xs text-ink-soft mb-1.5">
             {progress.rank.name} · {profile.xp.toLocaleString()} XP
             {progress.nextRank && <> · next: {progress.nextRank.name}</>}

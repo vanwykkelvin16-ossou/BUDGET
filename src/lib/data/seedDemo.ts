@@ -332,6 +332,10 @@ export function buildDemoData(now: Date = new Date()): AppData {
 
   const profile = makeDefaultProfile({
     displayName: 'Demo',
+    surname: 'Randy',
+    username: 'demo',
+    email: 'demo@pennyplay.app',
+    phone: '+27 00 000 0000',
     salaryCents: SALARY_CENTS,
     payDate: PAY_DATE,
     isDemo: true,

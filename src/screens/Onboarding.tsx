@@ -29,12 +29,70 @@ const BUCKET_META: Record<Bucket, { label: string; blurb: string; barClass: stri
   saving: { label: 'Savings', blurb: 'goals & future you', barClass: 'accent-aqua' },
 }
 
+function SignupField({
+  label,
+  value,
+  onChange,
+  ok,
+  placeholder,
+  type = 'text',
+  prefix,
+  hint,
+  autoFocus = false,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  ok: boolean
+  placeholder: string
+  type?: string
+  prefix?: string
+  hint?: string
+  autoFocus?: boolean
+}) {
+  const touched = value.length > 0
+  return (
+    <label className="block text-left">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-ink-faint mb-1 ml-1">
+        {label}
+        {touched && (
+          <span className={ok ? 'text-lime ml-1.5' : 'text-coral ml-1.5'}>
+            {ok ? '✓' : hint ? `· ${hint}` : '· required'}
+          </span>
+        )}
+      </p>
+      <div
+        className={`flex items-center rounded-2xl bg-card border-2 transition-colors ${
+          touched && !ok ? 'border-coral/60' : touched ? 'border-lime/50' : 'border-edge'
+        } focus-within:border-accent`}
+      >
+        {prefix && <span className="pl-4 -mr-2 font-display font-extrabold text-ink-faint">{prefix}</span>}
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          type={type}
+          maxLength={40}
+          autoFocus={autoFocus}
+          aria-label={label}
+          className="w-full px-4 py-3 bg-transparent outline-none font-semibold
+                     placeholder:text-ink-faint"
+        />
+      </div>
+    </label>
+  )
+}
+
 export function Onboarding() {
   const startDemo = useAppStore((s) => s.startDemo)
   const createProfile = useAppStore((s) => s.createProfile)
 
   const [step, setStep] = useState<Step>('welcome')
   const [name, setName] = useState('')
+  const [surname, setSurname] = useState('')
+  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [payDate, setPayDate] = useState(25)
   const [splits, setSplits] = useState<BucketSplits>(DEFAULT_SPLITS)
   const [busy, setBusy] = useState(false)
@@ -43,11 +101,23 @@ export function Onboarding() {
   const stepIndex = STEP_ORDER.indexOf(step)
   const preview = allocateIncome(salary.amountCents, splits)
 
+  // Sign-up validation — every field is required.
+  const nameOk = name.trim().length >= 2
+  const surnameOk = surname.trim().length >= 2
+  const usernameOk = /^[a-zA-Z0-9_.]{3,20}$/.test(username.trim())
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())
+  const phoneOk = phone.replace(/\D/g, '').length >= 9
+  const signupOk = nameOk && surnameOk && usernameOk && emailOk && phoneOk
+
   async function finish() {
     if (busy) return
     setBusy(true)
     await createProfile({
       displayName: name.trim() || 'You',
+      surname: surname.trim(),
+      username: username.trim().toLowerCase(),
+      email: email.trim().toLowerCase(),
+      phone: phone.trim(),
       salaryCents: salary.amountCents,
       payDate,
       splits,
@@ -104,36 +174,67 @@ export function Onboarding() {
           )}
 
           {step === 'name' && (
-            <div className="flex-1 flex flex-col gap-5">
+            <div className="flex-1 flex flex-col gap-3">
               <header className="text-center">
-                <h2 className="font-display font-extrabold text-2xl">First — who are you?</h2>
+                <div className="flex justify-center mb-1">
+                  <Randy mood="wink" size={64} />
+                </div>
+                <h2 className="font-display font-extrabold text-2xl">Create your profile</h2>
                 <p className="text-ink-soft text-sm mt-1">
-                  One-time sign-up. Randy likes to know who he's cheering for.
+                  One-time sign-up — all fields required.
                 </p>
               </header>
-              <div className="flex justify-center">
-                <Randy mood="wink" size={90} />
+
+              <div className="grid grid-cols-2 gap-3">
+                <SignupField
+                  label="First name"
+                  value={name}
+                  onChange={setName}
+                  ok={nameOk}
+                  placeholder="Kelvin"
+                  autoFocus
+                />
+                <SignupField
+                  label="Surname"
+                  value={surname}
+                  onChange={setSurname}
+                  ok={surnameOk}
+                  placeholder="van Wyk"
+                />
               </div>
-              <input
-                autoFocus
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && name.trim()) setStep('salary')
-                }}
-                placeholder="Your name"
-                maxLength={24}
-                className="w-full px-5 py-4 rounded-3xl bg-card border-2 border-edge outline-none
-                           font-display font-extrabold text-2xl text-center
-                           placeholder:text-ink-faint placeholder:font-body placeholder:text-lg
-                           focus:border-accent focus:shadow-glow-violet transition-all"
+              <SignupField
+                label="Username"
+                value={username}
+                onChange={(v) => setUsername(v.replace(/\s/g, ''))}
+                ok={usernameOk}
+                placeholder="kelvin_v"
+                prefix="@"
+                hint="3–20 letters, numbers, _ or ."
               />
-              {name.trim() && (
+              <SignupField
+                label="Email"
+                value={email}
+                onChange={setEmail}
+                ok={emailOk}
+                placeholder="you@example.com"
+                type="email"
+              />
+              <SignupField
+                label="Phone"
+                value={phone}
+                onChange={setPhone}
+                ok={phoneOk}
+                placeholder="082 123 4567"
+                type="tel"
+                hint="at least 9 digits"
+              />
+
+              {signupOk && (
                 <p className="text-center text-sm text-ink-soft animate-pop-in">
                   Nice to meet you, <b className="text-gradient-gold">{name.trim()}</b>! 🪙
                 </p>
               )}
-              <Button3D size="lg" full disabled={!name.trim()} onClick={() => setStep('salary')}>
+              <Button3D size="lg" full disabled={!signupOk} onClick={() => setStep('salary')}>
                 That's me
               </Button3D>
             </div>

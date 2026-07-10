@@ -35,6 +35,10 @@ export const CATEGORY_ICONS = [
 
 export function makeDefaultProfile(params: {
   displayName: string
+  surname?: string
+  username?: string
+  email?: string
+  phone?: string
   salaryCents: number
   payDate: number
   splits?: Profile['splits']
@@ -50,6 +54,10 @@ export function makeDefaultProfile(params: {
   return {
     id: 'local-user',
     displayName: params.displayName,
+    surname: params.surname ?? '',
+    username: params.username ?? '',
+    email: params.email ?? '',
+    phone: params.phone ?? '',
     salaryCents: params.salaryCents,
     payDate: params.payDate,
     splits,
