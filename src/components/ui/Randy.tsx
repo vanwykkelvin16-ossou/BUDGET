@@ -8,11 +8,12 @@ interface Props {
   className?: string
 }
 
+/** Keep moods for API compatibility; logo always renders unmodified. */
 const MOOD_STYLES: Record<RandyMood, string> = {
   happy: '',
-  celebrating: 'animate-bounce-fab',
-  worried: 'brightness-90 saturate-75 -rotate-6',
-  sleeping: 'opacity-70 -rotate-12 scale-95',
+  celebrating: '',
+  worried: '',
+  sleeping: '',
   wink: '',
 }
 
