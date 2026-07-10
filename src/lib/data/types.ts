@@ -32,6 +32,10 @@ export interface Profile {
   splits: BucketSplits
   /** Fun/date-night sub-budget inside Wants, per cycle. */
   funFundCents: number
+  /** What the fund is for — shown big on the dashboard ("date nights"). */
+  funFundName: string
+  /** Short description under the fund name ("Fun Fund"). */
+  funFundNote: string
   xp: number
   /** Daily logging streak. */
   streakCount: number

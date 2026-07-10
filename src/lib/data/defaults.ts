@@ -54,6 +54,8 @@ export function makeDefaultProfile(params: {
     payDate: params.payDate,
     splits,
     funFundCents: params.funFundCents ?? defaultFun,
+    funFundName: 'date nights',
+    funFundNote: 'Fun Fund',
     xp: 0,
     streakCount: 0,
     longestStreak: 0,

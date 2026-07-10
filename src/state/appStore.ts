@@ -162,10 +162,12 @@ const MAX_EVAL_DAYS = 60
 
 export function runHousekeeping(input: AppData, today: string, when: string): AppData {
   const data = structuredClone(input)
-  // Older persisted data may predate newer collections.
+  // Older persisted data may predate newer collections/fields.
   data.reviews ??= []
   const profile = data.profile
   if (!profile) return data
+  profile.funFundName ??= 'date nights'
+  profile.funFundNote ??= 'Fun Fund'
 
   /* 1 — materialise recurring items due since last time. */
   for (const item of data.recurring) {

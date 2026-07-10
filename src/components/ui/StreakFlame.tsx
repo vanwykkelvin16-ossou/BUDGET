@@ -12,8 +12,10 @@ export function StreakFlame({ count, aliveToday, atRisk, freezes }: Props) {
     <div
       className={[
         'flex items-center gap-1.5 px-3 py-1.5 rounded-full border-b-4 font-display font-extrabold',
+        // The pill keeps its dark plum ground in both themes, so the text
+        // is fixed white — theme-aware ink would vanish in light mode.
         active
-          ? 'bg-gradient-to-b from-[#43285c] to-[#38204f] border-[#2a1740] text-ink'
+          ? 'bg-gradient-to-b from-[#43285c] to-[#38204f] border-[#2a1740] text-white'
           : 'bg-card border-edge-strong text-ink-faint',
       ].join(' ')}
       title={

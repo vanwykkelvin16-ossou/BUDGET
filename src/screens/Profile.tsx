@@ -240,6 +240,7 @@ function ToggleRow({
       <button
         role="switch"
         aria-checked={value}
+        aria-label={label}
         onClick={() => onChange(!value)}
         className={`w-12 h-7 rounded-full border-2 transition-colors relative ${
           value ? 'bg-lime/70 border-lime' : 'bg-bg-deep border-edge-strong'

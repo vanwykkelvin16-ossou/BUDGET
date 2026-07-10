@@ -199,13 +199,13 @@ export function Dashboard() {
         >
           <span className="text-xl">❤️</span>
         </ProgressRing>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <p className="font-display font-extrabold">
             <span className="text-gradient-gold">{formatRands(info.funFund.remainingCents)}</span>{' '}
-            left for date nights
+            left for {profile.funFundName}
           </p>
           <p className="text-xs text-ink-soft">
-            Fun Fund · {formatRands(info.funFund.spentCents)} of{' '}
+            {profile.funFundNote} · {formatRands(info.funFund.spentCents)} of{' '}
             {formatRands(info.funFund.budgetCents)} used this cycle
           </p>
         </div>

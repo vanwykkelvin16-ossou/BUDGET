@@ -47,12 +47,7 @@ export function Settings() {
       />
       <PayDateRow payDate={profile.payDate} onSave={(d) => void updateProfile({ payDate: d })} />
       <SplitsCard />
-      <MoneyRow
-        label="❤️ Fun Fund per cycle"
-        cents={profile.funFundCents}
-        onSave={(cents) => void updateProfile({ funFundCents: cents })}
-        hint="Date nights & fun money inside your Wants bucket"
-      />
+      <FunFundCard />
       <CategoriesCard />
       <RecurringCard />
     </Screen>
@@ -232,6 +227,102 @@ function SplitsCard() {
           />
         </div>
       ))}
+    </Card>
+  )
+}
+
+function FunFundCard() {
+  const profile = useAppStore((s) => s.data.profile)!
+  const updateProfile = useAppStore((s) => s.updateProfile)
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState(profile.funFundName)
+  const [note, setNote] = useState(profile.funFundNote)
+  const [amount, setAmount] = useState('')
+
+  async function save() {
+    const cents = amount.trim() ? randsToCents(amount) : profile.funFundCents
+    await updateProfile({
+      funFundName: name.trim() || 'date nights',
+      funFundNote: note.trim() || 'Fun Fund',
+      funFundCents: cents > 0 ? cents : profile.funFundCents,
+    })
+    setAmount('')
+    setOpen(false)
+  }
+
+  return (
+    <Card className="mb-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-display font-extrabold text-sm">
+            ❤️ {profile.funFundNote} — "{profile.funFundName}"
+          </p>
+          <p className="text-[10px] text-ink-faint font-bold">
+            Your guilt-free sub-budget inside Wants
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            setName(profile.funFundName)
+            setNote(profile.funFundNote)
+            setAmount('')
+            setOpen(true)
+          }}
+          className="font-display font-extrabold text-accent-soft shrink-0"
+        >
+          {formatRands(profile.funFundCents)} ✎
+        </button>
+      </div>
+
+      <Sheet open={open} onClose={() => setOpen(false)} title="Make the Fun Fund yours">
+        <div className="flex flex-col gap-4">
+          <label className="block">
+            <p className="text-xs font-bold uppercase tracking-widest text-ink-faint mb-1">
+              What's it for?
+            </p>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="date nights"
+              maxLength={30}
+              className="w-full px-4 py-3 rounded-2xl bg-bg-deep border border-edge outline-none
+                         font-semibold placeholder:text-ink-faint focus:border-accent"
+            />
+            <p className="text-[10px] text-ink-faint font-bold mt-1">
+              Shows on the dashboard: "R 850 left for {name.trim() || 'date nights'}"
+            </p>
+          </label>
+          <label className="block">
+            <p className="text-xs font-bold uppercase tracking-widest text-ink-faint mb-1">
+              Description
+            </p>
+            <input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Fun Fund"
+              maxLength={40}
+              className="w-full px-4 py-3 rounded-2xl bg-bg-deep border border-edge outline-none
+                         font-semibold placeholder:text-ink-faint focus:border-accent"
+            />
+          </label>
+          <label className="block">
+            <p className="text-xs font-bold uppercase tracking-widest text-ink-faint mb-1">
+              Budget per cycle (R)
+            </p>
+            <input
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              inputMode="decimal"
+              placeholder={String(Math.round(profile.funFundCents / 100))}
+              className="w-full px-4 py-3 rounded-2xl bg-bg-deep border border-edge outline-none
+                         font-display font-extrabold text-lg focus:border-accent"
+            />
+          </label>
+          <Button3D full onClick={() => void save()}>
+            Save Fun Fund
+          </Button3D>
+        </div>
+      </Sheet>
     </Card>
   )
 }
