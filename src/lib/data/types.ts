@@ -133,6 +133,18 @@ export interface GoalContribution {
   createdAt: string
 }
 
+/** The user's own reflection on a finished (or running) cycle. */
+export interface MonthlyReview {
+  id: string
+  /** Cycle start date — one review per cycle. */
+  cycleStart: string
+  /** 1 😞 · 2 😐 · 3 🙂 · 4 🤩 */
+  mood: 1 | 2 | 3 | 4
+  note: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface MonthlySnapshot {
   id: string
   /** Cycle start date — also the snapshot's unique key. */
@@ -233,6 +245,7 @@ export interface AppData {
   goals: Goal[]
   contributions: GoalContribution[]
   snapshots: MonthlySnapshot[]
+  reviews: MonthlyReview[]
   userQuests: UserQuest[]
   userBadges: UserBadge[]
   xpEvents: XpEvent[]
@@ -247,6 +260,7 @@ export const emptyAppData = (): AppData => ({
   goals: [],
   contributions: [],
   snapshots: [],
+  reviews: [],
   userQuests: [],
   userBadges: [],
   xpEvents: [],

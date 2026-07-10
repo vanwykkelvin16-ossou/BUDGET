@@ -54,8 +54,10 @@ function Tab({ to, icon, label }: { to: string; icon: string; label: string }) {
       end={to === '/'}
       className={({ isActive }) =>
         [
-          'flex flex-col items-center gap-0.5 py-1 rounded-2xl font-display font-bold text-[11px]',
-          isActive ? 'text-accent-soft' : 'text-ink-faint grayscale opacity-75',
+          'flex flex-col items-center gap-0.5 py-1.5 mx-1 rounded-2xl font-display font-bold text-[11px] transition-colors',
+          isActive
+            ? 'text-accent-soft bg-accent/10 border border-accent/25'
+            : 'text-ink-faint grayscale opacity-75 border border-transparent',
         ].join(' ')
       }
     >

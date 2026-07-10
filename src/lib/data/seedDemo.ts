@@ -213,8 +213,10 @@ export function buildDemoData(now: Date = new Date()): AppData {
   }
 
   // A sweep at the end of the last cycle (leftover wants → emergency fund).
+  // Big enough that, with the auto-allocations, c1's savings target is hit —
+  // so the snapshot, the boss-slayer badge and the review all tell one story.
   const sweepDate = c1.start
-  contribute(s, sweepDate, 'goal-emergency', 84_500, 'sweep')
+  contribute(s, sweepDate, 'goal-emergency', 128_500, 'sweep')
   s.xpEvents.push(
     makeXpEvent({ reason: 'sweep', refId: `sweep:${c1.start}`, date: sweepDate, nowISO: creation(sweepDate) }),
   )
@@ -368,6 +370,24 @@ export function buildDemoData(now: Date = new Date()): AppData {
     goals,
     contributions: s.contributions,
     snapshots,
+    reviews: [
+      {
+        id: 'demo-rev-1',
+        cycleStart: c2.start,
+        mood: 3,
+        note: 'Groceries crept up but the side gig covered it. Solid month.',
+        createdAt: creation(c2.end),
+        updatedAt: creation(c2.end),
+      },
+      {
+        id: 'demo-rev-2',
+        cycleStart: c1.start,
+        mood: 4,
+        note: 'Beat the boss AND swept leftovers into the emergency fund 🎉',
+        createdAt: creation(c1.end),
+        updatedAt: creation(c1.end),
+      },
+    ],
     userQuests: s.userQuests,
     userBadges,
     xpEvents: s.xpEvents,

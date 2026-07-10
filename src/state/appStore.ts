@@ -87,6 +87,7 @@ interface AppState {
   updateRecurring: (id: string, patch: Partial<RecurringItem>) => Promise<void>
   deleteRecurring: (id: string) => Promise<void>
   updateProfile: (patch: Partial<Profile>) => Promise<void>
+  saveMonthReview: (cycleStart: string, mood: 1 | 2 | 3 | 4, note: string) => Promise<void>
   resetAll: () => Promise<void>
 }
 
@@ -161,6 +162,8 @@ const MAX_EVAL_DAYS = 60
 
 export function runHousekeeping(input: AppData, today: string, when: string): AppData {
   const data = structuredClone(input)
+  // Older persisted data may predate newer collections.
+  data.reviews ??= []
   const profile = data.profile
   if (!profile) return data
 
@@ -688,6 +691,25 @@ export const useAppStore = create<AppState>((set, get) => {
         if (patch.splits && !splitsAreValid(patch.splits)) return false
         Object.assign(data.profile, patch)
         if (patch.soundEnabled !== undefined) setSoundEnabled(patch.soundEnabled)
+      }),
+
+    saveMonthReview: async (cycleStart, mood, note) =>
+      commit((data) => {
+        const existing = data.reviews.find((r) => r.cycleStart === cycleStart)
+        if (existing) {
+          existing.mood = mood
+          existing.note = note.trim()
+          existing.updatedAt = nowISO()
+        } else {
+          data.reviews.push({
+            id: uid(),
+            cycleStart,
+            mood,
+            note: note.trim(),
+            createdAt: nowISO(),
+            updatedAt: nowISO(),
+          })
+        }
       }),
 
     resetAll: async () => {

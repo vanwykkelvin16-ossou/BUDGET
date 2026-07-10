@@ -17,9 +17,11 @@ import { isSupabaseConfigured } from '../lib/supabaseClient'
 import type { Bucket, BucketSplits } from '../lib/data/types'
 import { formatRands } from '../lib/money'
 
-type Step = 'welcome' | 'salary' | 'payDate' | 'splits' | 'done'
+type Step = 'welcome' | 'name' | 'salary' | 'payDate' | 'splits' | 'done'
 
-const STEP_ORDER: Step[] = ['welcome', 'salary', 'payDate', 'splits', 'done']
+const STEP_ORDER: Step[] = ['welcome', 'name', 'salary', 'payDate', 'splits', 'done']
+/** Steps that show progress dots (everything between welcome and done). */
+const DOT_STEPS = STEP_ORDER.length - 2
 
 const BUCKET_META: Record<Bucket, { label: string; blurb: string; barClass: string }> = {
   need: { label: 'Needs', blurb: 'rent, groceries, transport', barClass: 'accent-violet' },
@@ -32,6 +34,7 @@ export function Onboarding() {
   const createProfile = useAppStore((s) => s.createProfile)
 
   const [step, setStep] = useState<Step>('welcome')
+  const [name, setName] = useState('')
   const [payDate, setPayDate] = useState(25)
   const [splits, setSplits] = useState<BucketSplits>(DEFAULT_SPLITS)
   const [busy, setBusy] = useState(false)
@@ -44,7 +47,7 @@ export function Onboarding() {
     if (busy) return
     setBusy(true)
     await createProfile({
-      displayName: 'You',
+      displayName: name.trim() || 'You',
       salaryCents: salary.amountCents,
       payDate,
       splits,
@@ -55,11 +58,11 @@ export function Onboarding() {
     <Screen withTabBar={false} className="flex flex-col">
       {/* progress dots */}
       <div className="flex justify-center gap-2 mb-6 mt-2">
-        {STEP_ORDER.slice(0, 4).map((s, i) => (
+        {STEP_ORDER.slice(1, 1 + DOT_STEPS).map((s, i) => (
           <span
             key={s}
             className={`h-2 rounded-full transition-all duration-300 ${
-              i <= Math.min(stepIndex, 3) ? 'w-6 bg-accent' : 'w-2 bg-edge-strong'
+              i < Math.min(Math.max(stepIndex, 1), DOT_STEPS) ? 'w-6 bg-accent' : 'w-2 bg-edge-strong'
             }`}
           />
         ))}
@@ -87,7 +90,7 @@ export function Onboarding() {
                 </p>
               </div>
               <div className="w-full flex flex-col gap-3 mt-4">
-                <Button3D size="lg" full onClick={() => setStep('salary')}>
+                <Button3D size="lg" full onClick={() => setStep('name')}>
                   Set up in 60 seconds
                 </Button3D>
                 {/* Demo data stays on-device, so it's a local-mode feature. */}
@@ -97,6 +100,42 @@ export function Onboarding() {
                   </Button3D>
                 )}
               </div>
+            </div>
+          )}
+
+          {step === 'name' && (
+            <div className="flex-1 flex flex-col gap-5">
+              <header className="text-center">
+                <h2 className="font-display font-extrabold text-2xl">First — who are you?</h2>
+                <p className="text-ink-soft text-sm mt-1">
+                  One-time sign-up. Randy likes to know who he's cheering for.
+                </p>
+              </header>
+              <div className="flex justify-center">
+                <Randy mood="wink" size={90} />
+              </div>
+              <input
+                autoFocus
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && name.trim()) setStep('salary')
+                }}
+                placeholder="Your name"
+                maxLength={24}
+                className="w-full px-5 py-4 rounded-3xl bg-card border-2 border-edge outline-none
+                           font-display font-extrabold text-2xl text-center
+                           placeholder:text-ink-faint placeholder:font-body placeholder:text-lg
+                           focus:border-accent focus:shadow-glow-violet transition-all"
+              />
+              {name.trim() && (
+                <p className="text-center text-sm text-ink-soft animate-pop-in">
+                  Nice to meet you, <b className="text-gradient-gold">{name.trim()}</b>! 🪙
+                </p>
+              )}
+              <Button3D size="lg" full disabled={!name.trim()} onClick={() => setStep('salary')}>
+                That's me
+              </Button3D>
             </div>
           )}
 
@@ -203,7 +242,9 @@ export function Onboarding() {
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-5">
               <Randy mood="wink" size={130} className="animate-pop-in" />
               <div>
-                <h2 className="font-display font-extrabold text-3xl text-gradient-win">Ready!</h2>
+                <h2 className="font-display font-extrabold text-3xl text-gradient-win">
+                  Ready, {name.trim().split(' ')[0] || 'friend'}!
+                </h2>
                 <p className="text-ink-soft mt-2 max-w-[30ch]">
                   {formatRands(salary.amountCents)} lands on the {payDate}th and gets split{' '}
                   {splits.need}/{splits.want}/{splits.saving}. I'll do the maths — you live your life.

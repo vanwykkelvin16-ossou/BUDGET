@@ -13,6 +13,7 @@ import { Quests } from './screens/Quests'
 import { Goals } from './screens/Goals'
 import { Profile } from './screens/Profile'
 import { Insights } from './screens/Insights'
+import { Months } from './screens/Months'
 import { TrophyCabinet } from './screens/TrophyCabinet'
 import { SeasonRecap } from './screens/SeasonRecap'
 import { Settings } from './screens/Settings'
@@ -73,6 +74,7 @@ export function App() {
         <Route path="/profile/trophies" element={<TrophyCabinet />} />
         <Route path="/profile/settings" element={<Settings />} />
         <Route path="/insights" element={<Insights />} />
+        <Route path="/months" element={<Months />} />
         <Route path="/recap" element={<SeasonRecap />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

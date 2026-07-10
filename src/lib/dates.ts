@@ -114,6 +114,15 @@ export function formatDayLabel(iso: string, today?: string): string {
   return `${DAYS_SHORT[dayOfWeekMon(iso)]} ${d} ${MONTHS_SHORT[m - 1]}`
 }
 
+const DAYS_FULL = [
+  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+]
+
+/** "Thursday" style label. */
+export function formatWeekdayLong(iso: string): string {
+  return DAYS_FULL[dayOfWeekMon(iso)]
+}
+
 /** "9 July" style label. */
 export function formatDateLong(iso: string): string {
   const MONTHS = [

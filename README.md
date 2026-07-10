@@ -21,6 +21,7 @@ The app runs **fully local by default** — no backend needed. Pick **“Try dem
 - **Cycle rollover**: unspent Wants at cycle end prompt a one-tap **sweep into Savings**.
 - **Fun Fund** ❤️ — a first-class date-night sub-budget inside Wants with its own ring.
 - **Recurring items** (rent, medical aid, debit orders, salary) auto-log on their day, idempotently, even if the app was closed for weeks.
+- **Month tracker** 📆 — every cycle gets a report card (in/out/saved, boss result, top categories) plus your own mood + note review, stored in `monthly_reviews`.
 
 All money maths lives in `src/lib/engine/` as pure functions with unit tests (`npm test`). Amounts are integer cents, displayed as `R 1 234,56`. Business days are computed in `Africa/Johannesburg` regardless of device timezone.
 

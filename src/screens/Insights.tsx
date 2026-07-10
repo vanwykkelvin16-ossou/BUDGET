@@ -42,15 +42,24 @@ export function Insights() {
 
   return (
     <Screen>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-2">
         <h1 className="font-display font-extrabold text-2xl">Insights 📊</h1>
-        <Link
-          to="/recap"
-          className="px-3 py-1.5 rounded-full text-xs font-display font-extrabold
-                     bg-gradient-to-r from-violet to-aqua text-white"
-        >
-          🎬 Season recap
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            to="/months"
+            className="px-3 py-1.5 rounded-full text-xs font-display font-extrabold
+                       bg-card border border-edge"
+          >
+            📆 Months
+          </Link>
+          <Link
+            to="/recap"
+            className="px-3 py-1.5 rounded-full text-xs font-display font-extrabold
+                       bg-gradient-to-r from-violet to-aqua text-white"
+          >
+            🎬 Recap
+          </Link>
+        </div>
       </div>
       <p className="text-xs text-ink-faint font-bold mb-4">
         Cycle: {formatMonthLabel(info.cycle.start)} · started {info.cycle.start.slice(8)}th

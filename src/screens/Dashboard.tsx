@@ -14,7 +14,8 @@ import {
 } from '../state/selectors'
 import { displayStreak } from '../lib/gamification/streaks'
 import { formatRands, formatZAR } from '../lib/money'
-import { formatDayLabel, todaySAST } from '../lib/dates'
+import { formatDateLong, formatDayLabel, formatWeekdayLong, todaySAST } from '../lib/dates'
+import { daysElapsed, daysInCycle } from '../lib/engine/cycle'
 import { Screen } from '../components/layout/Screen'
 import { Card } from '../components/ui/Card'
 import { Button3D } from '../components/ui/Button3D'
@@ -26,6 +27,7 @@ import { CategoryBadge } from '../components/ui/CategoryBadge'
 import { EmptyState } from '../components/ui/EmptyState'
 import { Randy } from '../components/ui/Randy'
 import { Sheet } from '../components/ui/Sheet'
+import { SectionTitle } from '../components/ui/SectionTitle'
 import type { Bucket } from '../lib/data/types'
 
 const BUCKET_RING: Record<Bucket, { label: string; colors: [string, string] }> = {
@@ -71,14 +73,20 @@ export function Dashboard() {
     <Screen>
       <header className="flex flex-col gap-3 mb-4">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="font-display font-extrabold text-xl">
-            Pulse<span className="text-accent-soft">.</span>
-            {profile.isDemo && (
-              <span className="ml-2 text-[10px] align-middle px-2 py-0.5 rounded-full bg-aqua/20 text-aqua font-bold uppercase tracking-wider">
-                demo
-              </span>
-            )}
-          </h1>
+          <div className="min-w-0">
+            <h1 className="font-display font-extrabold text-xl truncate">
+              Hi {profile.displayName.split(' ')[0]} 👋
+              {profile.isDemo && (
+                <span className="ml-2 text-[10px] align-middle px-2 py-0.5 rounded-full bg-aqua/20 text-aqua font-bold uppercase tracking-wider">
+                  demo
+                </span>
+              )}
+            </h1>
+            <p className="text-[11px] text-ink-faint font-bold">
+              {formatWeekdayLong(today)} {formatDateLong(today)} · cycle day{' '}
+              {daysElapsed(today, info.cycle) + 1} of {daysInCycle(info.cycle)}
+            </p>
+          </div>
           <StreakFlame
             count={streak.count}
             aliveToday={streak.aliveToday}
@@ -105,8 +113,18 @@ export function Dashboard() {
         </Card>
       )}
 
-      {/* Hero: Safe-to-Spend */}
-      <Card glow={sts.status === 'winning' ? 'lime' : 'none'} className="text-center py-6 mb-4 relative overflow-hidden">
+      {/* Hero: Safe-to-Spend — wrapped in a slowly rotating gradient ring */}
+      <div className="relative rounded-[26px] p-[2px] overflow-hidden mb-4">
+        <div
+          aria-hidden
+          className="absolute inset-[-150%] animate-[gb-spin_9s_linear_infinite]"
+          style={{
+            background:
+              'conic-gradient(from 0deg, #7c3aed, #22d3ee, #a3e635, #fb923c, #ff5c7a, #7c3aed)',
+            opacity: sts.status === 'winning' ? 0.9 : 0.45,
+          }}
+        />
+        <Card glow={sts.status === 'winning' ? 'lime' : 'none'} className="text-center py-6 relative overflow-hidden !border-transparent">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-ink-faint">
           Safe to spend today
         </p>
@@ -137,7 +155,8 @@ export function Dashboard() {
             🙅 No-spend day so far — bank +75 XP
           </button>
         )}
-      </Card>
+        </Card>
+      </div>
 
       {/* Bucket rings */}
       <div className="grid grid-cols-3 gap-3 mb-4">
@@ -199,15 +218,25 @@ export function Dashboard() {
         <MiniStat label="Projected savings" cents={info.projectedSavingsCents} tone="text-aqua" />
       </div>
 
-      <Link to="/insights" className="block mb-4">
-        <Card className="flex items-center justify-between">
-          <span className="font-display font-extrabold text-sm">📊 Where did my money go?</span>
-          <span className="text-ink-faint">→</span>
-        </Card>
-      </Link>
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <Link to="/insights">
+          <Card className="flex items-center justify-between py-3">
+            <span className="font-display font-extrabold text-xs">📊 Insights</span>
+            <span className="text-ink-faint">→</span>
+          </Card>
+        </Link>
+        <Link to="/months">
+          <Card className="flex items-center justify-between py-3">
+            <span className="font-display font-extrabold text-xs">📆 Month tracker</span>
+            <span className="text-ink-faint">→</span>
+          </Card>
+        </Link>
+      </div>
 
       {/* Feed */}
-      <h2 className="font-display font-extrabold text-lg mb-2">Recent</h2>
+      <div className="mb-2">
+        <SectionTitle>Recent</SectionTitle>
+      </div>
       {feed.length === 0 ? (
         <EmptyState
           mood="happy"

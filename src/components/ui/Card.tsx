@@ -22,6 +22,8 @@ export function Card({ glow = 'none', className = '', children, ...rest }: Props
       className={[
         'bg-card border border-edge border-b-[5px] border-b-edge-strong',
         'rounded-[24px] p-4',
+        // Faint top-edge highlight sells the "moulded plastic" game-tile look.
+        'shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]',
         GLOWS[glow],
         className,
       ].join(' ')}

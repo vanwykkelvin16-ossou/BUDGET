@@ -27,6 +27,7 @@ const COLLECTIONS = [
   ['goals', 'goals'],
   ['contributions', 'goal_contributions'],
   ['snapshots', 'monthly_snapshots'],
+  ['reviews', 'monthly_reviews'],
   ['userQuests', 'user_quests'],
 ] as const
 
@@ -59,10 +60,10 @@ export class SupabaseStore implements DataStore {
         this.client.from('xp_events').select('*').eq('user_id', userId),
       ])
 
-      const [cats, incomes, txns, recurring, goals, contributions, snapshots, userQuests] =
-        collections.slice(0, 8).map((r) => r.data ?? [])
-      const userBadges = collections[8]?.data ?? []
-      const xpEvents = collections[9]?.data ?? []
+      const [cats, incomes, txns, recurring, goals, contributions, snapshots, reviews, userQuests] =
+        collections.slice(0, 9).map((r) => r.data ?? [])
+      const userBadges = collections[9]?.data ?? []
+      const xpEvents = collections[10]?.data ?? []
 
       const p = profileRes.data
       const data: AppData = {
@@ -163,6 +164,14 @@ export class SupabaseStore implements DataStore {
           swept: r.swept as boolean,
           bossDefeated: r.boss_defeated as boolean,
           createdAt: r.created_at as string,
+        })),
+        reviews: reviews.map((r: Record<string, unknown>) => ({
+          id: r.id as string,
+          cycleStart: r.cycle_start as string,
+          mood: r.mood as 1 | 2 | 3 | 4,
+          note: (r.note as string) ?? '',
+          createdAt: r.created_at as string,
+          updatedAt: (r.updated_at as string) ?? (r.created_at as string),
         })),
         userQuests: userQuests.map((r: Record<string, unknown>) => ({
           id: r.id as string,
@@ -288,6 +297,10 @@ export class SupabaseStore implements DataStore {
         spent_by_category: s.spentByCategory, saved_cents: s.savedCents,
         swept_cents: s.sweptCents, swept: s.swept, boss_defeated: s.bossDefeated,
       }),
+      monthly_reviews: (r) => ({
+        id: r.id, user_id: userId, cycle_start: r.cycleStart, mood: r.mood,
+        note: r.note, updated_at: r.updatedAt,
+      }),
       user_quests: (q) => ({
         id: q.id, user_id: userId, quest_id: q.questId, period_key: q.periodKey,
         completed_at: q.completedAt, claimed_at: q.claimedAt,
@@ -344,7 +357,7 @@ export class SupabaseStore implements DataStore {
       try {
         if (op.op === 'upsert') {
           const conflict =
-            op.table === 'monthly_snapshots'
+            op.table === 'monthly_snapshots' || op.table === 'monthly_reviews'
               ? 'user_id,cycle_start'
               : op.table === 'user_quests'
                 ? 'user_id,quest_id,period_key'

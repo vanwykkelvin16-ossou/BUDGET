@@ -63,10 +63,10 @@ export function Profile() {
           <span className="font-display font-extrabold text-xs text-white">LV{progress.level}</span>
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="font-display font-extrabold text-lg">{progress.rank.name}</h2>
+          <h2 className="font-display font-extrabold text-lg truncate">{profile.displayName}</h2>
           <p className="text-xs text-ink-soft mb-1.5">
-            {profile.xp.toLocaleString()} XP
-            {progress.nextRank && <> · next rank: {progress.nextRank.name}</>}
+            {progress.rank.name} · {profile.xp.toLocaleString()} XP
+            {progress.nextRank && <> · next: {progress.nextRank.name}</>}
           </p>
           <ProgressBar pct={progress.pct} height={10} fillClassName="bg-gradient-to-r from-lime to-emerald" />
         </div>
@@ -104,6 +104,12 @@ export function Profile() {
         <Link to="/insights">
           <Card className="flex items-center justify-between py-3">
             <span className="font-display font-extrabold text-sm">📊 Insights</span>
+            <span className="text-ink-faint">→</span>
+          </Card>
+        </Link>
+        <Link to="/months">
+          <Card className="flex items-center justify-between py-3">
+            <span className="font-display font-extrabold text-sm">📆 Month tracker</span>
             <span className="text-ink-faint">→</span>
           </Card>
         </Link>

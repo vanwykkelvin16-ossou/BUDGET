@@ -179,6 +179,13 @@ html[data-theme='royalty'] {
   }
 }
 
+/* Rotating conic sheen used by the dashboard hero's gradient ring. */
+@keyframes gb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes pop-in {
   0% {
     opacity: 0;

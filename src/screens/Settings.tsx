@@ -36,6 +36,10 @@ export function Settings() {
         <h1 className="font-display font-extrabold text-2xl">Budget settings</h1>
       </div>
 
+      <NameRow
+        name={profile.displayName}
+        onSave={(displayName) => void updateProfile({ displayName })}
+      />
       <MoneyRow
         label="💼 Monthly salary"
         cents={profile.salaryCents}
@@ -56,6 +60,51 @@ export function Settings() {
 }
 
 /* ------------------------------------------------------------------ */
+
+function NameRow({ name, onSave }: { name: string; onSave: (name: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(name)
+
+  return (
+    <Card className="mb-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-display font-extrabold text-sm">🙋 Your name</p>
+        {editing ? (
+          <div className="flex gap-2 items-center">
+            <input
+              autoFocus
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              maxLength={24}
+              className="w-36 px-3 py-2 rounded-xl bg-bg-deep border border-edge outline-none
+                         font-display font-extrabold text-right focus:border-accent"
+            />
+            <Button3D
+              size="sm"
+              variant="lime"
+              onClick={() => {
+                if (value.trim()) onSave(value.trim())
+                setEditing(false)
+              }}
+            >
+              ✓
+            </Button3D>
+          </div>
+        ) : (
+          <button
+            onClick={() => {
+              setValue(name)
+              setEditing(true)
+            }}
+            className="font-display font-extrabold text-accent-soft"
+          >
+            {name} ✎
+          </button>
+        )}
+      </div>
+    </Card>
+  )
+}
 
 function MoneyRow({
   label,
