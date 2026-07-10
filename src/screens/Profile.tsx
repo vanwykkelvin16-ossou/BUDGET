@@ -16,6 +16,7 @@ import { Button3D } from '../components/ui/Button3D'
 import { ProgressBar } from '../components/ui/ProgressBar'
 import { Sheet } from '../components/ui/Sheet'
 import { Randy } from '../components/ui/Randy'
+import { RankCrest } from '../components/ui/RankCrest'
 
 const PHASE2 = [
   { icon: '🔔', title: 'Nudges & notifications', blurb: 'Weekly digest, overspend warnings, salary-day prompts.' },
@@ -58,7 +59,7 @@ export function Profile() {
                      border-b-8 border-violet-deep shadow-glow-violet
                      flex flex-col items-center justify-center shrink-0"
         >
-          <span className="text-3xl leading-none">{progress.rank.crest}</span>
+          <RankCrest crest={progress.rank.crest} size={36} />
           <span className="font-display font-extrabold text-xs text-white">LV{progress.level}</span>
         </div>
         <div className="flex-1 min-w-0">
@@ -156,7 +157,7 @@ export function Profile() {
                   className="w-8 h-8 rounded-full border-b-4"
                   style={{ background: THEME_SWATCH[rank.themeId], borderColor: '#00000055' }}
                 />
-                <span className="text-base leading-none">{isUnlocked ? rank.crest : '🔒'}</span>
+                <RankCrest crest={isUnlocked ? rank.crest : '🔒'} size={18} />
               </button>
             )
           })}

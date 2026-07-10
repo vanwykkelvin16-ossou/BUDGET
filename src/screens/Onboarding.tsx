@@ -11,7 +11,7 @@ import { Button3D } from '../components/ui/Button3D'
 import { Card } from '../components/ui/Card'
 import { NumberPad } from '../components/ui/NumberPad'
 import { useAmountEntry } from '../components/ui/useAmountEntry'
-import { Randy } from '../components/ui/Randy'
+import { Randy, RandyIcon } from '../components/ui/Randy'
 import { adjustSplit, allocateIncome, DEFAULT_SPLITS } from '../lib/engine/allocate'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
 import type { Bucket, BucketSplits } from '../lib/data/types'
@@ -231,7 +231,8 @@ export function Onboarding() {
 
               {signupOk && (
                 <p className="text-center text-sm text-ink-soft animate-pop-in">
-                  Nice to meet you, <b className="text-gradient-gold">{name.trim()}</b>! 🪙
+                  Nice to meet you, <b className="text-gradient-gold">{name.trim()}</b>!{' '}
+                  <RandyIcon size={18} className="inline" />
                 </p>
               )}
               <Button3D size="lg" full disabled={!signupOk} onClick={() => setStep('salary')}>

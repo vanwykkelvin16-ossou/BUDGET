@@ -10,13 +10,16 @@ import confetti from 'canvas-confetti'
 import { useJuiceStore, type JuiceEvent } from '../../state/juiceStore'
 import { playChime, playCoin, playLevelUp } from '../../lib/sound'
 import { Button3D } from '../ui/Button3D'
-import { Randy } from '../ui/Randy'
+import { Randy, RANDY_LOGO_SRC } from '../ui/Randy'
+import { RankCrest } from '../ui/RankCrest'
 import { formatRands } from '../../lib/money'
 
 let coinShape: confetti.Shape | null = null
 function getCoinShape(): confetti.Shape | null {
   try {
-    coinShape ??= confetti.shapeFromText({ text: '🪙', scalar: 2 })
+    coinShape ??= confetti.shapeFromPath(
+      'M12,0C5.4,0,0,5.4,0,12s5.4,12,12,12s12-5.4,12-12S18.66,0,12,0z',
+    )
     return coinShape
   } catch {
     return null
@@ -48,10 +51,44 @@ function coinRain() {
         scalar: 1.6,
         origin: { x: 0.15 + Math.random() * 0.7, y: -0.05 },
         shapes: shape ? [shape] : undefined,
-        colors: shape ? undefined : ['#FFD700', '#FACC15', '#FB923C'],
+        colors: ['#FFD700', '#FFE679', '#E8A80C', '#FFF3B0'],
         disableForReducedMotion: true,
       })
-    }, i * 130)
+    }, i * 120)
+  }
+  spawnRandyCoinRain()
+}
+
+function spawnRandyCoinRain() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  const host = document.getElementById('root')
+  if (!host) return
+  for (let i = 0; i < 8; i++) {
+    setTimeout(() => {
+      const img = document.createElement('img')
+      img.src = RANDY_LOGO_SRC
+      img.alt = ''
+      img.draggable = false
+      const size = 28 + Math.random() * 18
+      img.style.cssText = [
+        'position:fixed',
+        'z-index:9999',
+        'pointer-events:none',
+        `left:${10 + Math.random() * 80}vw`,
+        'top:-48px',
+        `width:${size}px`,
+        `height:${size}px`,
+        'object-fit:contain',
+        'transition:transform 2.4s linear, opacity 2.4s ease-in',
+        'transform:translateY(110vh) rotate(360deg)',
+        'opacity:0',
+      ].join(';')
+      host.appendChild(img)
+      requestAnimationFrame(() => {
+        img.style.opacity = '1'
+      })
+      window.setTimeout(() => img.remove(), 2600)
+    }, i * 90)
   }
 }
 
@@ -204,7 +241,7 @@ export function JuiceHost() {
                                border-b-8 border-violet-deep shadow-glow-violet
                                flex items-center justify-center text-5xl"
                   >
-                    {overlay.rank.crest}
+                    <RankCrest crest={overlay.rank.crest} size={56} />
                   </motion.div>
                   <div>
                     <p className="font-display font-extrabold text-3xl text-gradient-gold animate-shimmer">
