@@ -7,10 +7,11 @@ on:
       - claude/pulse-budget-app-eelj24
   workflow_dispatch:
 
+# Publishes to the gh-pages branch — GitHub serves it automatically, and no
+# Pages-API permissions are needed (the API enablement path is blocked for
+# the workflow token on this repo).
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
@@ -19,9 +20,6 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -41,16 +39,8 @@ jobs:
       - name: Build for Pages
         run: npm run build:pages
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          enablement: true
-
-      - name: Upload site
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist-pages
-
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist-pages
