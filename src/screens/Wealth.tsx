@@ -187,57 +187,163 @@ function YearStat({ label, cents, tone }: { label: string; cents: number; tone: 
   )
 }
 
-/** Paired income/spend bars per cycle with a saved-amount dot. */
+/**
+ * Paired income/spend bars per cycle with a saved-amount marker.
+ * Adapts to sparse data: with a handful of months the bars widen and get
+ * value labels; a full year packs tight with gridlines carrying the scale.
+ */
 function YearChart({ cycles, liveStart }: { cycles: MonthlySnapshot[]; liveStart: string }) {
   const w = 340
-  const h = 130
-  const padBottom = 16
-  const max = Math.max(...cycles.map((c) => c.incomeCents), 1)
-  const slot = w / Math.max(cycles.length, 1)
-  const bar = Math.min(10, slot / 3)
-  const y = (cents: number) => (h - padBottom) * (1 - cents / max)
+  const h = 150
+  const padTop = 16
+  const padBottom = 18
+  // Right gutter reserved for the scale labels so bars never cover them.
+  const padRight = 34
+  const plotW = w - padRight
+  const innerH = h - padTop - padBottom
+  const baseline = h - padBottom
+
+  const max = Math.max(
+    ...cycles.map((c) =>
+      Math.max(c.incomeCents, c.spentByBucket.need + c.spentByBucket.want, c.savedCents),
+    ),
+    1,
+  )
+  const slot = plotW / Math.max(cycles.length, 1)
+  const bar = Math.max(7, Math.min(26, slot / 3.4))
+  const few = cycles.length <= 6
+  // Room for a "saved" text label only when the chart is very sparse.
+  const labelSaved = cycles.length <= 2
+  const y = (cents: number) => padTop + innerH * (1 - cents / max)
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
-      {cycles.map((c, i) => {
-        const cx = i * slot + slot / 2
-        const out = c.spentByBucket.need + c.spentByBucket.want
-        const isLive = c.cycleStart === liveStart
-        return (
-          <g key={c.cycleStart} opacity={isLive ? 1 : 0.9}>
-            <rect
-              x={cx - bar - 1}
-              y={y(c.incomeCents)}
-              width={bar}
-              height={Math.max(2, h - padBottom - y(c.incomeCents))}
-              rx={2.5}
-              fill="#A3E635"
-              opacity={0.85}
+    <div>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
+        {/* gridlines carry the scale */}
+        {[0.5, 1].map((f) => (
+          <g key={f}>
+            <line
+              x1={0}
+              x2={plotW}
+              y1={y(max * f)}
+              y2={y(max * f)}
+              stroke="var(--color-edge)"
+              strokeWidth={1}
+              strokeDasharray="3 4"
+              opacity={0.8}
             />
-            <rect
-              x={cx + 1}
-              y={y(out)}
-              width={bar}
-              height={Math.max(2, h - padBottom - y(out))}
-              rx={2.5}
-              fill="#FF5C7A"
-              opacity={0.85}
-            />
-            <circle cx={cx} cy={y(c.savedCents)} r={3.4} fill="#22D3EE" />
             <text
-              x={cx}
-              y={h - 4}
-              textAnchor="middle"
+              x={w - 2}
+              y={y(max * f) + 3}
+              textAnchor="end"
               fontSize={8.5}
               fontWeight={700}
-              fill={isLive ? '#22D3EE' : 'var(--color-ink-faint)'}
+              fill="var(--color-ink-faint)"
             >
-              {formatMonthLabel(c.cycleStart).slice(0, 3)}
+              {formatZARCompact(max * f)}
             </text>
           </g>
-        )
-      })}
-    </svg>
+        ))}
+        <line x1={0} x2={plotW} y1={baseline} y2={baseline} stroke="var(--color-edge)" strokeWidth={1.5} />
+
+        {cycles.map((c, i) => {
+          const cx = i * slot + slot / 2
+          const out = c.spentByBucket.need + c.spentByBucket.want
+          const isLive = c.cycleStart === liveStart
+          const barH = (cents: number) => (cents > 0 ? Math.max(3, baseline - y(cents)) : 0)
+          return (
+            <g key={c.cycleStart} opacity={isLive || !few ? 1 : 0.95}>
+              {/* income */}
+              {c.incomeCents > 0 && (
+                <rect
+                  x={cx - bar - 2}
+                  y={baseline - barH(c.incomeCents)}
+                  width={bar}
+                  height={barH(c.incomeCents)}
+                  rx={Math.min(5, bar / 2.5)}
+                  fill="#A3E635"
+                />
+              )}
+              {/* spend */}
+              {out > 0 && (
+                <rect
+                  x={cx + 2}
+                  y={baseline - barH(out)}
+                  width={bar}
+                  height={barH(out)}
+                  rx={Math.min(5, bar / 2.5)}
+                  fill="#FF5C7A"
+                />
+              )}
+              {/* value labels when there's room */}
+              {few && c.incomeCents > 0 && (
+                <text
+                  x={cx - 2 - bar / 2}
+                  y={Math.max(10, y(c.incomeCents) - 5)}
+                  textAnchor="middle"
+                  fontSize={9}
+                  fontWeight={800}
+                  fill="#84cc16"
+                >
+                  {formatZARCompact(c.incomeCents)}
+                </text>
+              )}
+              {few && out > 0 && (
+                <text
+                  x={cx + 2 + bar / 2}
+                  y={Math.max(10, y(out) - 5)}
+                  textAnchor="middle"
+                  fontSize={9}
+                  fontWeight={800}
+                  fill="#FF5C7A"
+                >
+                  {formatZARCompact(out)}
+                </text>
+              )}
+              {/* saved marker */}
+              {c.savedCents > 0 && (
+                <g>
+                  <circle cx={cx} cy={y(c.savedCents)} r={few ? 5 : 3.6} fill="#22D3EE" stroke="var(--color-card)" strokeWidth={2} />
+                  {labelSaved && (
+                    <text
+                      x={cx + bar + 10}
+                      y={y(c.savedCents) + 3}
+                      fontSize={9}
+                      fontWeight={800}
+                      fill="#22D3EE"
+                    >
+                      {formatZARCompact(c.savedCents)} saved
+                    </text>
+                  )}
+                </g>
+              )}
+              <text
+                x={cx}
+                y={h - 5}
+                textAnchor="middle"
+                fontSize={9}
+                fontWeight={800}
+                fill={isLive ? '#22D3EE' : 'var(--color-ink-faint)'}
+              >
+                {formatMonthLabel(c.cycleStart).slice(0, 3)}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
+      {/* legend */}
+      <div className="flex justify-center gap-4 mt-1 text-[10px] font-bold text-ink-soft">
+        <span className="flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded-[3px] bg-lime inline-block" /> in
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded-[3px] bg-coral inline-block" /> out
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded-full bg-aqua inline-block" /> saved
+        </span>
+      </div>
+    </div>
   )
 }
 
