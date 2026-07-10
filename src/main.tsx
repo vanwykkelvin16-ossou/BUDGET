@@ -1,23 +1,28 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { BrowserRouter, HashRouter } from 'react-router-dom'
 
-import '@fontsource/nunito/400.css'
-import '@fontsource/nunito/600.css'
-import '@fontsource/nunito/700.css'
-import '@fontsource/nunito/800.css'
-import '@fontsource/baloo-2/500.css'
-import '@fontsource/baloo-2/600.css'
-import '@fontsource/baloo-2/700.css'
-import '@fontsource/baloo-2/800.css'
+// Latin subsets only — keeps the (offline, inlined) font payload small.
+import '@fontsource/nunito/latin-400.css'
+import '@fontsource/nunito/latin-600.css'
+import '@fontsource/nunito/latin-700.css'
+import '@fontsource/nunito/latin-800.css'
+import '@fontsource/baloo-2/latin-500.css'
+import '@fontsource/baloo-2/latin-600.css'
+import '@fontsource/baloo-2/latin-700.css'
+import '@fontsource/baloo-2/latin-800.css'
 import './styles/theme.css'
 
 import { App } from './App'
 
+// The single-file preview build runs from a static page with no server-side
+// route rewriting, so it uses hash routing instead of history routing.
+const Router = import.meta.env.VITE_SINGLEFILE ? HashRouter : BrowserRouter
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <Router>
       <App />
-    </BrowserRouter>
+    </Router>
   </React.StrictMode>,
 )
