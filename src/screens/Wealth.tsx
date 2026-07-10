@@ -210,9 +210,11 @@ function YearChart({ cycles, liveStart }: { cycles: MonthlySnapshot[]; liveStart
     1,
   )
   const slot = plotW / Math.max(cycles.length, 1)
-  const bar = Math.max(7, Math.min(26, slot / 3.4))
+  // Three bars per month (in · saved · out) with small gaps between them.
+  const gap = 3
+  const bar = Math.max(6, Math.min(22, (slot - 2 * gap) / 4.2))
   const few = cycles.length <= 6
-  // Room for a "saved" text label only when the chart is very sparse.
+  // Room for a value label on the short saved bar only when very sparse.
   const labelSaved = cycles.length <= 2
   const y = (cents: number) => padTop + innerH * (1 - cents / max)
 
@@ -251,34 +253,27 @@ function YearChart({ cycles, liveStart }: { cycles: MonthlySnapshot[]; liveStart
           const out = c.spentByBucket.need + c.spentByBucket.want
           const isLive = c.cycleStart === liveStart
           const barH = (cents: number) => (cents > 0 ? Math.max(3, baseline - y(cents)) : 0)
+          const rx = Math.min(5, bar / 2.5)
+          // Bar trio: green in · blue saved · pink out.
+          const xIn = cx - 1.5 * bar - gap
+          const xSaved = cx - bar / 2
+          const xOut = cx + bar / 2 + gap
           return (
             <g key={c.cycleStart} opacity={isLive || !few ? 1 : 0.95}>
-              {/* income */}
               {c.incomeCents > 0 && (
-                <rect
-                  x={cx - bar - 2}
-                  y={baseline - barH(c.incomeCents)}
-                  width={bar}
-                  height={barH(c.incomeCents)}
-                  rx={Math.min(5, bar / 2.5)}
-                  fill="#A3E635"
-                />
+                <rect x={xIn} y={baseline - barH(c.incomeCents)} width={bar} height={barH(c.incomeCents)} rx={rx} fill="#A3E635" />
               )}
-              {/* spend */}
+              {c.savedCents > 0 && (
+                <rect x={xSaved} y={baseline - barH(c.savedCents)} width={bar} height={barH(c.savedCents)} rx={rx} fill="#22D3EE" />
+              )}
               {out > 0 && (
-                <rect
-                  x={cx + 2}
-                  y={baseline - barH(out)}
-                  width={bar}
-                  height={barH(out)}
-                  rx={Math.min(5, bar / 2.5)}
-                  fill="#FF5C7A"
-                />
+                <rect x={xOut} y={baseline - barH(out)} width={bar} height={barH(out)} rx={rx} fill="#FF5C7A" />
               )}
+
               {/* value labels when there's room */}
               {few && c.incomeCents > 0 && (
                 <text
-                  x={cx - 2 - bar / 2}
+                  x={xIn + bar / 2}
                   y={Math.max(10, y(c.incomeCents) - 5)}
                   textAnchor="middle"
                   fontSize={9}
@@ -288,9 +283,21 @@ function YearChart({ cycles, liveStart }: { cycles: MonthlySnapshot[]; liveStart
                   {formatZARCompact(c.incomeCents)}
                 </text>
               )}
+              {labelSaved && c.savedCents > 0 && (
+                <text
+                  x={xSaved + bar / 2}
+                  y={Math.max(10, y(c.savedCents) - 5)}
+                  textAnchor="middle"
+                  fontSize={9}
+                  fontWeight={800}
+                  fill="#22D3EE"
+                >
+                  {formatZARCompact(c.savedCents)}
+                </text>
+              )}
               {few && out > 0 && (
                 <text
-                  x={cx + 2 + bar / 2}
+                  x={xOut + bar / 2}
                   y={Math.max(10, y(out) - 5)}
                   textAnchor="middle"
                   fontSize={9}
@@ -300,23 +307,7 @@ function YearChart({ cycles, liveStart }: { cycles: MonthlySnapshot[]; liveStart
                   {formatZARCompact(out)}
                 </text>
               )}
-              {/* saved marker */}
-              {c.savedCents > 0 && (
-                <g>
-                  <circle cx={cx} cy={y(c.savedCents)} r={few ? 5 : 3.6} fill="#22D3EE" stroke="var(--color-card)" strokeWidth={2} />
-                  {labelSaved && (
-                    <text
-                      x={cx + bar + 10}
-                      y={y(c.savedCents) + 3}
-                      fontSize={9}
-                      fontWeight={800}
-                      fill="#22D3EE"
-                    >
-                      {formatZARCompact(c.savedCents)} saved
-                    </text>
-                  )}
-                </g>
-              )}
+
               <text
                 x={cx}
                 y={h - 5}
@@ -337,10 +328,10 @@ function YearChart({ cycles, liveStart }: { cycles: MonthlySnapshot[]; liveStart
           <span className="w-2.5 h-2.5 rounded-[3px] bg-lime inline-block" /> in
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded-[3px] bg-coral inline-block" /> out
+          <span className="w-2.5 h-2.5 rounded-[3px] bg-aqua inline-block" /> saved
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded-full bg-aqua inline-block" /> saved
+          <span className="w-2.5 h-2.5 rounded-[3px] bg-coral inline-block" /> out
         </span>
       </div>
     </div>
