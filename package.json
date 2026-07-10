@@ -9,6 +9,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "build:preview": "vite build --config vite.config.preview.ts",
+    "build:pages": "vite build --config vite.config.pages.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "icons": "node scripts/make-icons.mjs"
