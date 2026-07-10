@@ -37,12 +37,16 @@ const BUCKET_RING: Record<Bucket, { label: string; colors: [string, string] }> =
   saving: { label: 'Savings', colors: ['#67E8F9', '#22D3EE'] },
 }
 
+const RECENT_FEED_INITIAL = 5
+const RECENT_FEED_STEP = 5
+
 export function Dashboard() {
   const data = useAppStore((s) => s.data)
   const markNoSpendDay = useAppStore((s) => s.markNoSpendDay)
   const sweepToGoal = useAppStore((s) => s.sweepToGoal)
   const [sweepOpen, setSweepOpen] = useState(false)
   const [editing, setEditing] = useState<LedgerEntry | null>(null)
+  const [recentVisible, setRecentVisible] = useState(RECENT_FEED_INITIAL)
 
   const today = todaySAST()
   const info = useMemo(() => computeCycleInfo(data, today), [data, today])
@@ -61,12 +65,18 @@ export function Dashboard() {
         ? 'text-gradient-gold animate-shake-warn'
         : 'text-coral animate-shake-warn'
 
-  const feed = [
-    ...data.transactions.map((t) => ({ type: 'expense' as const, item: t })),
-    ...data.incomes.map((i) => ({ type: 'income' as const, item: i })),
-  ]
-    .sort((a, b) => (b.item.date + b.item.createdAt).localeCompare(a.item.date + a.item.createdAt))
-    .slice(0, 8)
+  const feed = useMemo(
+    () =>
+      [
+        ...data.transactions.map((t) => ({ type: 'expense' as const, item: t })),
+        ...data.incomes.map((i) => ({ type: 'income' as const, item: i })),
+      ].sort((a, b) =>
+        (b.item.date + b.item.createdAt).localeCompare(a.item.date + a.item.createdAt),
+      ),
+    [data.transactions, data.incomes],
+  )
+  const visibleFeed = feed.slice(0, recentVisible)
+  const hasMoreRecent = recentVisible < feed.length
 
   const catById = new Map(data.categories.map((c) => [c.id, c]))
   const sortedGoals = [...data.goals].filter((g) => !g.achievedAt)
@@ -245,7 +255,7 @@ export function Dashboard() {
         />
       ) : (
         <div className="flex flex-col gap-2">
-          {feed.map((entry) => (
+          {visibleFeed.map((entry) => (
             <button
               key={entry.item.id}
               onClick={() => setEditing(entry)}
@@ -289,6 +299,16 @@ export function Dashboard() {
               )}
             </button>
           ))}
+          {hasMoreRecent && (
+            <Button3D
+              variant="ghost"
+              size="sm"
+              full
+              onClick={() => setRecentVisible((n) => Math.min(n + RECENT_FEED_STEP, feed.length))}
+            >
+              Load more
+            </Button3D>
+          )}
         </div>
       )}
 
