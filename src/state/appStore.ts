@@ -38,6 +38,7 @@ import { allocateIncome, splitsAreValid } from '../lib/engine/allocate'
 import { wasUnderStsDay } from '../lib/engine/safeToSpend'
 import { dueOccurrences, occurrenceKey } from '../lib/engine/recurring'
 import { buildSnapshot, incomesInCycle, sumCents } from '../lib/engine/insights'
+import { reconcile } from '../lib/engine/reconcile'
 import { alreadyAwarded, makeXpEvent, totalXp } from '../lib/gamification/xp'
 import { levelForXp, rankForLevel, unlockedThemes } from '../lib/gamification/levels'
 import { advanceStreak } from '../lib/gamification/streaks'
@@ -56,6 +57,8 @@ interface AppState {
   loaded: boolean
   /** Supabase mode only: configured but no session yet. */
   needsAuth: boolean
+  /** SAST day the in-memory state was last computed for. */
+  currentDay: string
   init: () => Promise<void>
   reload: () => Promise<void>
   startDemo: () => Promise<void>
@@ -66,7 +69,15 @@ interface AppState {
     splits: Profile['splits']
   }) => Promise<void>
   addExpense: (params: { amountCents: number; categoryId: string; note?: string }) => Promise<void>
+  updateExpense: (id: string, patch: { amountCents?: number; categoryId?: string; note?: string }) => Promise<void>
+  deleteExpense: (id: string) => Promise<void>
   addIncome: (params: { amountCents: number; source: IncomeSource; note?: string }) => Promise<void>
+  updateIncome: (id: string, patch: { amountCents?: number; source?: IncomeSource; note?: string }) => Promise<void>
+  deleteIncome: (id: string) => Promise<void>
+  /** Re-run housekeeping when the SAST day rolls over while the app is open. */
+  rolloverIfNewDay: () => Promise<void>
+  /** Pick up changes another tab persisted to storage. */
+  syncExternal: () => Promise<void>
   markNoSpendDay: () => Promise<void>
   contributeToGoal: (goalId: string, amountCents: number, source?: ContributionSource) => Promise<void>
   sweepToGoal: (goalId: string) => Promise<void>
@@ -321,6 +332,9 @@ export function runHousekeeping(input: AppData, today: string, when: string): Ap
   profile.xp = totalXp(data.xpEvents)
   applyBadges(data, null, when)
 
+  /* 6 — make every derived number agree with the ledger. */
+  reconcile(data, today)
+
   return data
 }
 
@@ -337,8 +351,10 @@ export const useAppStore = create<AppState>((set, get) => {
     const data = structuredClone(get().data)
     const juice: JuiceEvent[] = []
     if (mutate(data, juice, today) === false) return
-    if (data.profile) data.profile.xp = totalXp(data.xpEvents)
-    set({ data })
+    // Every commit ends by reconciling derived data with the ledger, so
+    // whatever changed, everything downstream matches immediately.
+    reconcile(data, today)
+    set({ data, currentDay: today })
     if (juice.length > 0) useJuiceStore.getState().push(...juice)
     await store.persist(data)
   }
@@ -347,6 +363,7 @@ export const useAppStore = create<AppState>((set, get) => {
     data: emptyAppData(),
     loaded: false,
     needsAuth: false,
+    currentDay: todaySAST(),
 
     init: async () => {
       if (get().loaded) return
@@ -440,6 +457,23 @@ export const useAppStore = create<AppState>((set, get) => {
         applyBadges(data, juice, nowISO())
       }),
 
+    updateExpense: async (id, patch) =>
+      commit((data) => {
+        const txn = data.transactions.find((t) => t.id === id)
+        if (!txn) return false
+        if (patch.amountCents !== undefined && patch.amountCents <= 0) return false
+        Object.assign(txn, patch)
+      }),
+
+    deleteExpense: async (id) =>
+      commit((data) => {
+        const before = data.transactions.length
+        data.transactions = data.transactions.filter((t) => t.id !== id)
+        if (data.transactions.length === before) return false
+        // Its +10 XP goes with it — the audit log matches the ledger.
+        data.xpEvents = data.xpEvents.filter((e) => e.refId !== id)
+      }),
+
     addIncome: async ({ amountCents, source, note }) =>
       commit((data, juice, today) => {
         if (amountCents <= 0) return false
@@ -456,6 +490,40 @@ export const useAppStore = create<AppState>((set, get) => {
         juice.push({ kind: 'coins' })
         applyBadges(data, juice, nowISO())
       }),
+
+    updateIncome: async (id, patch) =>
+      commit((data) => {
+        const income = data.incomes.find((i) => i.id === id)
+        if (!income) return false
+        if (patch.amountCents !== undefined && patch.amountCents <= 0) return false
+        Object.assign(income, patch)
+      }),
+
+    deleteIncome: async (id) =>
+      commit((data) => {
+        const before = data.incomes.length
+        data.incomes = data.incomes.filter((i) => i.id !== id)
+        return data.incomes.length !== before ? undefined : false
+      }),
+
+    rolloverIfNewDay: async () => {
+      const state = get()
+      if (!state.loaded || !state.data.profile) return
+      const today = todaySAST()
+      if (today === state.currentDay) return
+      const data = runHousekeeping(state.data, today, nowISO())
+      set({ data, currentDay: today })
+      await store.persist(data)
+    },
+
+    syncExternal: async () => {
+      const state = get()
+      if (!state.loaded) return
+      const stored = await store.load()
+      if (!stored?.profile) return
+      stored.reviews ??= []
+      set({ data: reconcile(structuredClone(stored), todaySAST()) })
+    },
 
     markNoSpendDay: async () =>
       commit((data, juice, today) => {

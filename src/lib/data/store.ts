@@ -31,7 +31,7 @@ export interface DataStore {
   userId?(): Promise<string | null>
 }
 
-const STORAGE_KEY = 'pennyplay:data:v1'
+export const STORAGE_KEY = 'pennyplay:data:v1'
 /** Pre-rename key — migrated on first load so nobody loses their data. */
 const LEGACY_STORAGE_KEY = 'pulse-budget:data:v1'
 

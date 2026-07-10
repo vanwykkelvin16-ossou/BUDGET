@@ -28,6 +28,7 @@ import { EmptyState } from '../components/ui/EmptyState'
 import { Randy } from '../components/ui/Randy'
 import { Sheet } from '../components/ui/Sheet'
 import { SectionTitle } from '../components/ui/SectionTitle'
+import { EditEntrySheet, type LedgerEntry } from '../components/EditEntrySheet'
 import type { Bucket } from '../lib/data/types'
 
 const BUCKET_RING: Record<Bucket, { label: string; colors: [string, string] }> = {
@@ -41,6 +42,7 @@ export function Dashboard() {
   const markNoSpendDay = useAppStore((s) => s.markNoSpendDay)
   const sweepToGoal = useAppStore((s) => s.sweepToGoal)
   const [sweepOpen, setSweepOpen] = useState(false)
+  const [editing, setEditing] = useState<LedgerEntry | null>(null)
 
   const today = todaySAST()
   const info = useMemo(() => computeCycleInfo(data, today), [data, today])
@@ -245,45 +247,54 @@ export function Dashboard() {
         />
       ) : (
         <div className="flex flex-col gap-2">
-          {feed.map((entry) =>
-            entry.type === 'expense' ? (
-              <Card key={entry.item.id} className="flex items-center gap-3 py-2.5">
-                <CategoryBadge
-                  category={catById.get(entry.item.categoryId) ?? { icon: '📦', color: '#A8A29E', name: 'Other' }}
-                  size={40}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-sm truncate">
-                    {entry.item.note || catById.get(entry.item.categoryId)?.name || 'Expense'}
-                  </p>
-                  <p className="text-xs text-ink-faint">{formatDayLabel(entry.item.date, today)}</p>
-                </div>
-                <span className="font-display font-extrabold text-coral">
-                  −{formatZAR(entry.item.amountCents)}
-                </span>
-              </Card>
-            ) : (
-              <Card key={entry.item.id} className="flex items-center gap-3 py-2.5">
-                <span
-                  className="inline-flex items-center justify-center rounded-full w-10 h-10 text-xl
-                             bg-lime/15 border-2 border-lime/50"
-                >
-                  💰
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-sm truncate">
-                    {entry.item.note || entry.item.source}
-                  </p>
-                  <p className="text-xs text-ink-faint">{formatDayLabel(entry.item.date, today)}</p>
-                </div>
-                <span className="font-display font-extrabold text-lime">
-                  +{formatZAR(entry.item.amountCents)}
-                </span>
-              </Card>
-            ),
-          )}
+          {feed.map((entry) => (
+            <button
+              key={entry.item.id}
+              onClick={() => setEditing(entry)}
+              className="text-left active:scale-[0.99] transition-transform"
+              aria-label={`Edit ${entry.type}`}
+            >
+              {entry.type === 'expense' ? (
+                <Card className="flex items-center gap-3 py-2.5">
+                  <CategoryBadge
+                    category={catById.get(entry.item.categoryId) ?? { icon: '📦', color: '#A8A29E', name: 'Other' }}
+                    size={40}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm truncate">
+                      {entry.item.note || catById.get(entry.item.categoryId)?.name || 'Expense'}
+                    </p>
+                    <p className="text-xs text-ink-faint">{formatDayLabel(entry.item.date, today)}</p>
+                  </div>
+                  <span className="font-display font-extrabold text-coral">
+                    −{formatZAR(entry.item.amountCents)}
+                  </span>
+                </Card>
+              ) : (
+                <Card className="flex items-center gap-3 py-2.5">
+                  <span
+                    className="inline-flex items-center justify-center rounded-full w-10 h-10 text-xl
+                               bg-lime/15 border-2 border-lime/50"
+                  >
+                    💰
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm truncate">
+                      {entry.item.note || entry.item.source}
+                    </p>
+                    <p className="text-xs text-ink-faint">{formatDayLabel(entry.item.date, today)}</p>
+                  </div>
+                  <span className="font-display font-extrabold text-lime">
+                    +{formatZAR(entry.item.amountCents)}
+                  </span>
+                </Card>
+              )}
+            </button>
+          ))}
         </div>
       )}
+
+      <EditEntrySheet entry={editing} onClose={() => setEditing(null)} />
 
       {/* Sweep sheet */}
       <Sheet open={sweepOpen} onClose={() => setSweepOpen(false)} title="Sweep leftovers into…">

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAppStore } from './state/appStore'
+import { STORAGE_KEY } from './lib/data/store'
 import { TabBar } from './components/layout/TabBar'
 import { JuiceHost } from './components/juice/JuiceHost'
 import { Randy } from './components/ui/Randy'
@@ -28,6 +29,26 @@ export function App() {
   useEffect(() => {
     void init()
   }, [init])
+
+  // Keep the data live: pick up edits from other tabs the moment they
+  // persist, and roll housekeeping over when the SAST day changes while
+  // the app is open (recurring items, day-close XP, fresh Safe-to-Spend).
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY) void useAppStore.getState().syncExternal()
+    }
+    const onWake = () => void useAppStore.getState().rolloverIfNewDay()
+    const tick = window.setInterval(onWake, 30_000)
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('focus', onWake)
+    document.addEventListener('visibilitychange', onWake)
+    return () => {
+      window.clearInterval(tick)
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('focus', onWake)
+      document.removeEventListener('visibilitychange', onWake)
+    }
+  }, [])
 
   // Apply theme + dark mode to <html> whenever the profile changes.
   useEffect(() => {
