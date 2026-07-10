@@ -22,6 +22,7 @@ The app runs **fully local by default** — no backend needed. Pick **“Try dem
 - **Fun Fund** ❤️ — a first-class date-night sub-budget inside Wants with its own ring.
 - **Recurring items** (rent, medical aid, debit orders, salary) auto-log on their day, idempotently, even if the app was closed for weeks.
 - **Month tracker** 📆 — every cycle gets a report card (in/out/saved, boss result, top categories) plus your own mood + note review, stored in `monthly_reviews`.
+- **Wealth** 💎 — annual view (last 12 cycles charted with yearly totals), a net-worth tracker (assets − liabilities + goal savings, stored in `assets`), and a crystal-ball projector: *"save R X/month for Y at Z% growth → you'll have R N"* (compound interest, unit-tested).
 
 All money maths lives in `src/lib/engine/` as pure functions with unit tests (`npm test`). Amounts are integer cents, displayed as `R 1 234,56`. Business days are computed in `Africa/Johannesburg` regardless of device timezone.
 
@@ -73,4 +74,4 @@ Security model:
 
 ## Phase 2 (designed, stubbed in Profile → Coming soon)
 
-Push-notification nudges · CSV bank statement import · Partner/shared budgets · Annual view & net-worth tracker.
+Push-notification nudges · CSV bank statement import · Partner/shared budgets.

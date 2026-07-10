@@ -137,6 +137,18 @@ export interface GoalContribution {
   createdAt: string
 }
 
+/** A net-worth line item: something you own or something you owe. */
+export interface Asset {
+  id: string
+  name: string
+  icon: string
+  kind: 'asset' | 'liability'
+  /** Always stored positive; liabilities subtract at display time. */
+  amountCents: number
+  createdAt: string
+  updatedAt: string
+}
+
 /** The user's own reflection on a finished (or running) cycle. */
 export interface MonthlyReview {
   id: string
@@ -250,6 +262,7 @@ export interface AppData {
   contributions: GoalContribution[]
   snapshots: MonthlySnapshot[]
   reviews: MonthlyReview[]
+  assets: Asset[]
   userQuests: UserQuest[]
   userBadges: UserBadge[]
   xpEvents: XpEvent[]
@@ -265,6 +278,7 @@ export const emptyAppData = (): AppData => ({
   contributions: [],
   snapshots: [],
   reviews: [],
+  assets: [],
   userQuests: [],
   userBadges: [],
   xpEvents: [],

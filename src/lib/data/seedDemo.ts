@@ -370,6 +370,12 @@ export function buildDemoData(now: Date = new Date()): AppData {
     goals,
     contributions: s.contributions,
     snapshots,
+    assets: [
+      { id: 'demo-a1', name: 'FNB Savings', icon: '🏦', kind: 'asset', amountCents: 1_850_000, createdAt: creation(c3.start), updatedAt: creation(c1.start) },
+      { id: 'demo-a2', name: 'Car (resale)', icon: '🚗', kind: 'asset', amountCents: 8_500_000, createdAt: creation(c3.start), updatedAt: creation(c3.start) },
+      { id: 'demo-a3', name: 'Student loan', icon: '🎓', kind: 'liability', amountCents: 4_200_000, createdAt: creation(c3.start), updatedAt: creation(c2.start) },
+      { id: 'demo-a4', name: 'Credit card', icon: '💳', kind: 'liability', amountCents: 680_000, createdAt: creation(c3.start), updatedAt: creation(c1.start) },
+    ],
     reviews: [
       {
         id: 'demo-rev-1',

@@ -28,6 +28,7 @@ const COLLECTIONS = [
   ['contributions', 'goal_contributions'],
   ['snapshots', 'monthly_snapshots'],
   ['reviews', 'monthly_reviews'],
+  ['assets', 'assets'],
   ['userQuests', 'user_quests'],
 ] as const
 
@@ -60,10 +61,10 @@ export class SupabaseStore implements DataStore {
         this.client.from('xp_events').select('*').eq('user_id', userId),
       ])
 
-      const [cats, incomes, txns, recurring, goals, contributions, snapshots, reviews, userQuests] =
-        collections.slice(0, 9).map((r) => r.data ?? [])
-      const userBadges = collections[9]?.data ?? []
-      const xpEvents = collections[10]?.data ?? []
+      const [cats, incomes, txns, recurring, goals, contributions, snapshots, reviews, assets, userQuests] =
+        collections.slice(0, 10).map((r) => r.data ?? [])
+      const userBadges = collections[10]?.data ?? []
+      const xpEvents = collections[11]?.data ?? []
 
       const p = profileRes.data
       const data: AppData = {
@@ -172,6 +173,15 @@ export class SupabaseStore implements DataStore {
           cycleStart: r.cycle_start as string,
           mood: r.mood as 1 | 2 | 3 | 4,
           note: (r.note as string) ?? '',
+          createdAt: r.created_at as string,
+          updatedAt: (r.updated_at as string) ?? (r.created_at as string),
+        })),
+        assets: assets.map((r: Record<string, unknown>) => ({
+          id: r.id as string,
+          name: r.name as string,
+          icon: r.icon as string,
+          kind: r.kind as 'asset' | 'liability',
+          amountCents: Number(r.amount_cents),
           createdAt: r.created_at as string,
           updatedAt: (r.updated_at as string) ?? (r.created_at as string),
         })),
@@ -304,6 +314,10 @@ export class SupabaseStore implements DataStore {
       monthly_reviews: (r) => ({
         id: r.id, user_id: userId, cycle_start: r.cycleStart, mood: r.mood,
         note: r.note, updated_at: r.updatedAt,
+      }),
+      assets: (a) => ({
+        id: a.id, user_id: userId, name: a.name, icon: a.icon, kind: a.kind,
+        amount_cents: a.amountCents, updated_at: a.updatedAt,
       }),
       user_quests: (q) => ({
         id: q.id, user_id: userId, quest_id: q.questId, period_key: q.periodKey,

@@ -220,17 +220,20 @@ export function Dashboard() {
         <MiniStat label="Projected savings" cents={info.projectedSavingsCents} tone="text-aqua" />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="grid grid-cols-3 gap-2 mb-4">
         <Link to="/insights">
-          <Card className="flex items-center justify-between py-3">
+          <Card className="text-center py-2.5 px-1">
             <span className="font-display font-extrabold text-xs">📊 Insights</span>
-            <span className="text-ink-faint">→</span>
           </Card>
         </Link>
         <Link to="/months">
-          <Card className="flex items-center justify-between py-3">
-            <span className="font-display font-extrabold text-xs">📆 Month tracker</span>
-            <span className="text-ink-faint">→</span>
+          <Card className="text-center py-2.5 px-1">
+            <span className="font-display font-extrabold text-xs">📆 Months</span>
+          </Card>
+        </Link>
+        <Link to="/wealth">
+          <Card className="text-center py-2.5 px-1">
+            <span className="font-display font-extrabold text-xs">💎 Wealth</span>
           </Card>
         </Link>
       </div>

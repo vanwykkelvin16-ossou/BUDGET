@@ -21,7 +21,6 @@ const PHASE2 = [
   { icon: '🔔', title: 'Nudges & notifications', blurb: 'Weekly digest, overspend warnings, salary-day prompts.' },
   { icon: '📄', title: 'Bank statement import', blurb: 'Drop a CSV, get everything categorised.' },
   { icon: '👫', title: 'Partner mode', blurb: 'Share a budget without sharing a headache.' },
-  { icon: '📅', title: 'Annual view & net worth', blurb: 'Zoom out. Watch the line go up.' },
 ]
 
 const THEME_SWATCH: Record<string, string> = {
@@ -110,6 +109,12 @@ export function Profile() {
         <Link to="/months">
           <Card className="flex items-center justify-between py-3">
             <span className="font-display font-extrabold text-sm">📆 Month tracker</span>
+            <span className="text-ink-faint">→</span>
+          </Card>
+        </Link>
+        <Link to="/wealth">
+          <Card className="flex items-center justify-between py-3">
+            <span className="font-display font-extrabold text-sm">💎 Annual view & net worth</span>
             <span className="text-ink-faint">→</span>
           </Card>
         </Link>

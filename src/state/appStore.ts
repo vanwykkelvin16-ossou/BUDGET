@@ -8,6 +8,7 @@
 import { create } from 'zustand'
 import type {
   AppData,
+  Asset,
   Category,
   ContributionSource,
   Goal,
@@ -99,6 +100,9 @@ interface AppState {
   deleteRecurring: (id: string) => Promise<void>
   updateProfile: (patch: Partial<Profile>) => Promise<void>
   saveMonthReview: (cycleStart: string, mood: 1 | 2 | 3 | 4, note: string) => Promise<void>
+  addAsset: (params: { name: string; icon: string; kind: Asset['kind']; amountCents: number }) => Promise<void>
+  updateAsset: (id: string, patch: Partial<Pick<Asset, 'name' | 'icon' | 'kind' | 'amountCents'>>) => Promise<void>
+  deleteAsset: (id: string) => Promise<void>
   resetAll: () => Promise<void>
 }
 
@@ -175,6 +179,7 @@ export function runHousekeeping(input: AppData, today: string, when: string): Ap
   const data = structuredClone(input)
   // Older persisted data may predate newer collections/fields.
   data.reviews ??= []
+  data.assets ??= []
   const profile = data.profile
   if (!profile) return data
   profile.funFundName ??= 'date nights'
@@ -522,6 +527,7 @@ export const useAppStore = create<AppState>((set, get) => {
       const stored = await store.load()
       if (!stored?.profile) return
       stored.reviews ??= []
+      stored.assets ??= []
       set({ data: reconcile(structuredClone(stored), todaySAST()) })
     },
 
@@ -780,6 +786,35 @@ export const useAppStore = create<AppState>((set, get) => {
             updatedAt: nowISO(),
           })
         }
+      }),
+
+    addAsset: async ({ name, icon, kind, amountCents }) =>
+      commit((data) => {
+        if (!name.trim() || amountCents < 0) return false
+        data.assets.push({
+          id: uid(),
+          name: name.trim(),
+          icon,
+          kind,
+          amountCents,
+          createdAt: nowISO(),
+          updatedAt: nowISO(),
+        })
+      }),
+
+    updateAsset: async (id, patch) =>
+      commit((data) => {
+        const asset = data.assets.find((a) => a.id === id)
+        if (!asset) return false
+        if (patch.amountCents !== undefined && patch.amountCents < 0) return false
+        Object.assign(asset, patch, { updatedAt: nowISO() })
+      }),
+
+    deleteAsset: async (id) =>
+      commit((data) => {
+        const before = data.assets.length
+        data.assets = data.assets.filter((a) => a.id !== id)
+        return data.assets.length !== before ? undefined : false
       }),
 
     resetAll: async () => {
