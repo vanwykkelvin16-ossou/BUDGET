@@ -25,7 +25,6 @@ import { XPBar } from '../components/ui/XPBar'
 import { StreakFlame } from '../components/ui/StreakFlame'
 import { CategoryBadge } from '../components/ui/CategoryBadge'
 import { EmptyState } from '../components/ui/EmptyState'
-import { Randy } from '../components/ui/Randy'
 import { Sheet } from '../components/ui/Sheet'
 import { SectionTitle } from '../components/ui/SectionTitle'
 import { EditEntrySheet, type LedgerEntry } from '../components/EditEntrySheet'
@@ -125,8 +124,19 @@ export function Dashboard() {
         </Card>
       )}
 
-      {/* Hero: Safe-to-Spend — wrapped in a slowly rotating gradient ring */}
-      <div className="relative rounded-[26px] p-[2px] overflow-hidden mb-4">
+      {/* Hero: Safe-to-Spend — Randy sits on the rim, then the gradient ring */}
+      <div className="relative mb-4">
+        <div className="flex justify-center relative z-10 -mb-10 pointer-events-none">
+          <img
+            src="/randy-logo.png"
+            alt="Randy"
+            width={96}
+            height={96}
+            className="w-[5.75rem] h-[5.75rem] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.35)]"
+            draggable={false}
+          />
+        </div>
+        <div className="relative rounded-[26px] p-[2px] overflow-hidden">
         <div
           aria-hidden
           className="absolute inset-[-150%] animate-[gb-spin_9s_linear_infinite]"
@@ -136,7 +146,7 @@ export function Dashboard() {
             opacity: sts.status === 'winning' ? 0.9 : 0.45,
           }}
         />
-        <Card glow={sts.status === 'winning' ? 'lime' : 'none'} className="text-center py-6 relative overflow-hidden !border-transparent">
+        <Card glow={sts.status === 'winning' ? 'lime' : 'none'} className="text-center pt-2 pb-6 relative overflow-hidden !border-transparent">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-ink-faint">
           Safe to spend today
         </p>
@@ -153,11 +163,6 @@ export function Dashboard() {
             </>
           )}
         </p>
-        {sts.status === 'over' && (
-          <div className="absolute -right-3 -bottom-4 opacity-90">
-            <Randy mood="worried" size={76} />
-          </div>
-        )}
         {canMarkNoSpend && (
           <button
             onClick={() => void markNoSpendDay()}
@@ -168,6 +173,7 @@ export function Dashboard() {
           </button>
         )}
         </Card>
+        </div>
       </div>
 
       {/* Bucket rings */}
