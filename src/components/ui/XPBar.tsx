@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useAppStore } from '../../state/appStore'
 import { levelProgress } from '../../lib/gamification/levels'
 import { ProgressBar } from './ProgressBar'
+import { RankCrest } from './RankCrest'
 
 /** Glowing XP bar with level crest — lives at the top of the dashboard. */
 export function XPBar() {
@@ -17,7 +18,7 @@ export function XPBar() {
                    shadow-glow-violet"
         title={progress.rank.name}
       >
-        <span className="text-lg leading-none">{progress.rank.crest}</span>
+        <RankCrest crest={progress.rank.crest} size={22} />
         <span className="font-display font-extrabold text-[10px] text-white leading-tight">
           LV{progress.level}
         </span>
