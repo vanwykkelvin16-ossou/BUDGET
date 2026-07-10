@@ -1,4 +1,4 @@
--- Pulse Budget — initial schema.
+-- PennyPlay — initial schema.
 -- Every user-owned table has RLS with auth.uid() scoping. XP is awarded
 -- exclusively by security-definer trigger functions and the award-xp edge
 -- function (service role): clients can read xp_events but never write them.

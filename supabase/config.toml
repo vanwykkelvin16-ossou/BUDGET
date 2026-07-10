@@ -1,7 +1,7 @@
-# Supabase local development config for Pulse Budget.
+# Supabase local development config for PennyPlay.
 # https://supabase.com/docs/guides/local-development/cli/config
 
-project_id = "pulse-budget"
+project_id = "pennyplay"
 
 [api]
 enabled = true

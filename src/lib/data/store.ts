@@ -31,7 +31,9 @@ export interface DataStore {
   userId?(): Promise<string | null>
 }
 
-const STORAGE_KEY = 'pulse-budget:data:v1'
+const STORAGE_KEY = 'pennyplay:data:v1'
+/** Pre-rename key — migrated on first load so nobody loses their data. */
+const LEGACY_STORAGE_KEY = 'pulse-budget:data:v1'
 
 export class LocalStore implements DataStore {
   kind = 'local' as const
@@ -40,7 +42,14 @@ export class LocalStore implements DataStore {
 
   async load(): Promise<AppData | null> {
     try {
-      const raw = localStorage.getItem(this.key)
+      let raw = localStorage.getItem(this.key)
+      if (!raw && this.key === STORAGE_KEY) {
+        raw = localStorage.getItem(LEGACY_STORAGE_KEY)
+        if (raw) {
+          localStorage.setItem(this.key, raw)
+          localStorage.removeItem(LEGACY_STORAGE_KEY)
+        }
+      }
       if (!raw) return null
       return JSON.parse(raw) as AppData
     } catch {

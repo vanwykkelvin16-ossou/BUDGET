@@ -82,7 +82,7 @@ export function Onboarding() {
               <Randy mood="celebrating" size={150} className="animate-pop-in" />
               <div>
                 <h1 className="font-display font-extrabold text-4xl text-gradient-violet">
-                  Pulse Budget
+                  PennyPlay
                 </h1>
                 <p className="text-ink-soft mt-3 max-w-[30ch]">
                   Hey! I'm <b className="text-gold">Randy</b>. Let's make your money fun —

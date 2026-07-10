@@ -161,7 +161,7 @@ export function SeasonRecap() {
               variant="gold"
               onClick={(e) => {
                 e.stopPropagation()
-                const text = `My ${monthLabel} on Pulse Budget: saved ${formatRands(savedCents)}, ${profile.longestStreak}-day streak, ${data.userBadges.length} badges 🔥`
+                const text = `My ${monthLabel} on PennyPlay: saved ${formatRands(savedCents)}, ${profile.longestStreak}-day streak, ${data.userBadges.length} badges 🔥`
                 if (navigator.share) void navigator.share({ text })
                 else void navigator.clipboard?.writeText(text)
               }}

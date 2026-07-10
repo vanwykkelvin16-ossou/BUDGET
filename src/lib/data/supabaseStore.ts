@@ -15,8 +15,8 @@ import type { AppData, Bucket } from './types'
 import { emptyAppData } from './types'
 import type { DataStore, SyncOp } from './store'
 
-const CACHE_KEY = 'pulse-budget:supabase-cache:v1'
-const QUEUE_KEY = 'pulse-budget:sync-queue:v1'
+const CACHE_KEY = 'pennyplay:supabase-cache:v1'
+const QUEUE_KEY = 'pennyplay:sync-queue:v1'
 
 /** Tables that sync 1:1 with AppData collections. */
 const COLLECTIONS = [

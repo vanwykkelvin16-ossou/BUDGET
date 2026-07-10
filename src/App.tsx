@@ -41,7 +41,7 @@ export function App() {
     return (
       <div className="min-h-dvh flex flex-col items-center justify-center gap-4">
         <Randy mood="happy" size={110} className="animate-pop-in" />
-        <p className="font-display font-extrabold text-xl text-gradient-violet">Pulse Budget</p>
+        <p className="font-display font-extrabold text-xl text-gradient-violet">PennyPlay</p>
       </div>
     )
   }

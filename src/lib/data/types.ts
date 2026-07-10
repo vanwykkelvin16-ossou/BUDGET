@@ -1,5 +1,5 @@
 /**
- * Pulse Budget domain types.
+ * PennyPlay domain types.
  *
  * Every monetary amount is an integer number of cents (ZAR).
  * Every date is an ISO `YYYY-MM-DD` string computed in Africa/Johannesburg.

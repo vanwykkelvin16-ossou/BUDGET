@@ -189,7 +189,7 @@ export function Profile() {
         {profile.isDemo ? '🚪 Exit demo & start fresh' : '🗑️ Reset all data'}
       </Button3D>
       <p className="text-center text-[10px] text-ink-faint font-bold mt-4">
-        Pulse Budget · your money stays on this device{' '}
+        PennyPlay · your money stays on this device{' '}
         {profile.isDemo ? '· demo data' : ''}
       </p>
 

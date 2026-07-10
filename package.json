@@ -1,9 +1,9 @@
 {
-  "name": "pulse-budget",
+  "name": "pennyplay",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Pulse Budget — a playful, game-flavoured personal budgeting PWA for ZAR",
+  "description": "PennyPlay — a playful, game-flavoured personal budgeting PWA for ZAR",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

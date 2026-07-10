@@ -1,4 +1,4 @@
-# Pulse Budget 🪙
+# PennyPlay 🪙
 
 A premium personal budgeting PWA for ZAR that feels like a game — Duolingo × Monopoly GO × Revolut. Safe-to-spend daily numbers, salary-date budget cycles, savings goals with liquid rings, XP, streaks, quests, badges and Randy the Coin.
 
