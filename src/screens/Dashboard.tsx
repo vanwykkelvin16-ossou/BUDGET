@@ -220,12 +220,7 @@ export function Dashboard() {
         <MiniStat label="Projected savings" cents={info.projectedSavingsCents} tone="text-aqua" />
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mb-4">
-        <Link to="/insights">
-          <Card className="text-center py-2.5 px-1">
-            <span className="font-display font-extrabold text-xs">📊 Insights</span>
-          </Card>
-        </Link>
+      <div className="grid grid-cols-2 gap-3 mb-4">
         <Link to="/months">
           <Card className="text-center py-2.5 px-1">
             <span className="font-display font-extrabold text-xs">📆 Months</span>
