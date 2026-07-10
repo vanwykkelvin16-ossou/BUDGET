@@ -31,6 +31,12 @@ export function App() {
     void init()
   }, [init])
 
+  // Every navigation lands at the top of the new screen — no inherited
+  // scroll position from the page you came from.
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior })
+  }, [location.pathname])
+
   // Keep the data live: pick up edits from other tabs the moment they
   // persist, and roll housekeeping over when the SAST day changes while
   // the app is open (recurring items, day-close XP, fresh Safe-to-Spend).
