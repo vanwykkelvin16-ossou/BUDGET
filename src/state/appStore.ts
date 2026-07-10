@@ -761,13 +761,69 @@ export const useAppStore = create<AppState>((set, get) => {
         data.recurring = data.recurring.filter((r) => r.id !== id)
       }),
 
-    updateProfile: async (patch) =>
-      commit((data) => {
-        if (!data.profile) return false
+    updateProfile: async (patch) => {
+      const salaryChanged = patch.salaryCents !== undefined
+      const payDateChanged = patch.payDate !== undefined
+
+      await commit((data, _juice, today) => {
+        const profile = data.profile
+        if (!profile) return false
         if (patch.splits && !splitsAreValid(patch.splits)) return false
-        Object.assign(data.profile, patch)
+        Object.assign(profile, patch)
         if (patch.soundEnabled !== undefined) setSoundEnabled(patch.soundEnabled)
-      }),
+
+        // Settings are the source of truth for the salary: changing the
+        // amount or payday flows through the recurring salary engine and
+        // the current cycle's already-landed salary, so the whole app
+        // (allocations, safe-to-spend, rings) follows immediately.
+        if (salaryChanged || payDateChanged) {
+          const cycle = cycleFor(today, profile.payDate)
+
+          let engine = data.recurring.find(
+            (r) => r.kind === 'income' && r.source === 'salary' && r.active,
+          )
+          if (!engine) {
+            engine = {
+              id: uid(),
+              kind: 'income',
+              name: 'Salary',
+              amountCents: profile.salaryCents,
+              dayOfMonth: profile.payDate,
+              source: 'salary',
+              active: true,
+              lastMaterialized: addDays(cycle.start, -1),
+              createdAt: nowISO(),
+            }
+            data.recurring.push(engine)
+          } else {
+            engine.amountCents = profile.salaryCents
+            engine.dayOfMonth = profile.payDate
+          }
+
+          const inThisCycle = data.incomes.filter(
+            (i) => i.source === 'salary' && inCycle(i.date, cycle),
+          )
+          if (inThisCycle.length > 0) {
+            if (salaryChanged) {
+              // The recurring-materialised entry is the paycheque; extra
+              // manually-logged salary entries are left alone.
+              const primary = inThisCycle.find((i) => i.occurrenceKey) ?? inThisCycle[0]
+              primary.amountCents = profile.salaryCents
+            }
+          } else {
+            // Payday moved into a cycle with no salary yet — let
+            // housekeeping materialise it on the new cycle start.
+            engine.lastMaterialized = addDays(cycle.start, -1)
+          }
+        }
+      })
+
+      if (salaryChanged || payDateChanged) {
+        const data = runHousekeeping(get().data, todaySAST(), nowISO())
+        set({ data })
+        await store.persist(data)
+      }
+    },
 
     saveMonthReview: async (cycleStart, mood, note) =>
       commit((data) => {
