@@ -51,7 +51,7 @@ export function Auth() {
   return (
     <Screen withTabBar={false} className="flex flex-col justify-center">
       <div className="flex flex-col items-center text-center gap-2 mb-6">
-        <Randy mood="happy" size={110} />
+        <Randy mood="happy" size={150} />
         <h1 className="font-display font-extrabold text-3xl text-gradient-violet">PennyPlay</h1>
         <p className="text-ink-soft text-sm">Your money, but make it a game.</p>
       </div>
