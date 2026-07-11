@@ -149,7 +149,7 @@ export function Onboarding() {
         >
           {step === 'welcome' && (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-5">
-              <Randy mood="celebrating" size={150} className="animate-pop-in" />
+              <Randy mood="celebrating" size={170} className="animate-pop-in" />
               <div>
                 <h1 className="font-display font-extrabold text-4xl text-gradient-violet">
                   PennyPlay
@@ -177,7 +177,7 @@ export function Onboarding() {
             <div className="flex-1 flex flex-col gap-3">
               <header className="text-center">
                 <div className="flex justify-center mb-1">
-                  <Randy mood="wink" size={64} />
+                  <Randy mood="wink" size={120} />
                 </div>
                 <h2 className="font-display font-extrabold text-2xl">Create your profile</h2>
                 <p className="text-ink-soft text-sm mt-1">
@@ -341,7 +341,7 @@ export function Onboarding() {
 
           {step === 'done' && (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-5">
-              <Randy mood="wink" size={130} className="animate-pop-in" />
+              <Randy mood="wink" size={150} className="animate-pop-in" />
               <div>
                 <h2 className="font-display font-extrabold text-3xl text-gradient-win">
                   Ready, {name.trim().split(' ')[0] || 'friend'}!
