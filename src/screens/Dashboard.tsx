@@ -29,7 +29,7 @@ import { Randy } from '../components/ui/Randy'
 import { Sheet } from '../components/ui/Sheet'
 import { SectionTitle } from '../components/ui/SectionTitle'
 import { EditEntrySheet, type LedgerEntry } from '../components/EditEntrySheet'
-import type { Bucket } from '../lib/data/types'
+import type { Bucket, GoalContribution } from '../lib/data/types'
 
 const BUCKET_RING: Record<Bucket, { label: string; colors: [string, string] }> = {
   need: { label: 'Needs', colors: ['#A78BFA', '#7C3AED'] },
@@ -70,15 +70,17 @@ export function Dashboard() {
       [
         ...data.transactions.map((t) => ({ type: 'expense' as const, item: t })),
         ...data.incomes.map((i) => ({ type: 'income' as const, item: i })),
+        ...data.contributions.map((c) => ({ type: 'contribution' as const, item: c })),
       ].sort((a, b) =>
         (b.item.date + b.item.createdAt).localeCompare(a.item.date + a.item.createdAt),
       ),
-    [data.transactions, data.incomes],
+    [data.transactions, data.incomes, data.contributions],
   )
   const visibleFeed = feed.slice(0, recentVisible)
   const hasMoreRecent = recentVisible < feed.length
 
   const catById = new Map(data.categories.map((c) => [c.id, c]))
+  const goalById = new Map(data.goals.map((g) => [g.id, g]))
   const sortedGoals = [...data.goals].filter((g) => !g.achievedAt)
 
   return (
@@ -234,7 +236,7 @@ export function Dashboard() {
       <div className="grid grid-cols-3 gap-3 mb-4">
         <MiniStat label="Income in" cents={info.incomeCents} tone="text-lime" />
         <MiniStat label="Money out" cents={info.moneyOutCents} tone="text-coral" />
-        <MiniStat label="Projected savings" cents={info.projectedSavingsCents} tone="text-aqua" />
+        <MiniStat label="Saved so far" cents={info.savedCents} tone="text-aqua" />
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-4">
@@ -265,9 +267,18 @@ export function Dashboard() {
           {visibleFeed.map((entry) => (
             <button
               key={entry.item.id}
-              onClick={() => setEditing(entry)}
-              className="text-left active:scale-[0.99] transition-transform"
-              aria-label={`Edit ${entry.type}`}
+              onClick={() => {
+                if (entry.type === 'contribution') return
+                setEditing(entry)
+              }}
+              className={`text-left active:scale-[0.99] transition-transform ${
+                entry.type === 'contribution' ? 'cursor-default' : ''
+              }`}
+              aria-label={
+                entry.type === 'contribution'
+                  ? `Savings to ${goalById.get(entry.item.goalId)?.name ?? 'goal'}`
+                  : `Edit ${entry.type}`
+              }
             >
               {entry.type === 'expense' ? (
                 <Card className="flex items-center gap-3 py-2.5">
@@ -285,7 +296,7 @@ export function Dashboard() {
                     −{formatZAR(entry.item.amountCents)}
                   </span>
                 </Card>
-              ) : (
+              ) : entry.type === 'income' ? (
                 <Card className="flex items-center gap-3 py-2.5">
                   <span
                     className="inline-flex items-center justify-center rounded-full w-10 h-10 text-xl
@@ -303,6 +314,12 @@ export function Dashboard() {
                     +{formatZAR(entry.item.amountCents)}
                   </span>
                 </Card>
+              ) : (
+                <ContributionFeedRow
+                  contribution={entry.item}
+                  goal={goalById.get(entry.item.goalId)}
+                  today={today}
+                />
               )}
             </button>
           ))}
@@ -361,6 +378,42 @@ function MiniStat({ label, cents, tone }: { label: string; cents: number; tone: 
         <CountUp value={cents} format={(v) => formatRands(v)} duration={0.7} />
       </p>
       <p className="text-[10px] text-ink-faint font-bold mt-0.5 leading-tight">{label}</p>
+    </Card>
+  )
+}
+
+const CONTRIBUTION_LABEL: Record<GoalContribution['source'], string> = {
+  manual: 'Manual save',
+  auto: 'Auto-allocated',
+  sweep: 'Wants sweep',
+}
+
+function ContributionFeedRow({
+  contribution,
+  goal,
+  today,
+}: {
+  contribution: GoalContribution
+  goal?: { icon: string; name: string; color: string }
+  today: string
+}) {
+  return (
+    <Card className="flex items-center gap-3 py-2.5">
+      <span
+        className="inline-flex items-center justify-center rounded-full w-10 h-10 text-xl
+                   bg-aqua/15 border-2 border-aqua/50"
+      >
+        {goal?.icon ?? '🏆'}
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="font-bold text-sm truncate">
+          {goal?.name ?? 'Savings goal'} · {CONTRIBUTION_LABEL[contribution.source]}
+        </p>
+        <p className="text-xs text-ink-faint">{formatDayLabel(contribution.date, today)}</p>
+      </div>
+      <span className="font-display font-extrabold text-aqua">
+        +{formatZAR(contribution.amountCents)}
+      </span>
     </Card>
   )
 }
