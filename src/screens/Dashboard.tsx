@@ -31,10 +31,13 @@ import { SectionTitle } from '../components/ui/SectionTitle'
 import { EditEntrySheet, type LedgerEntry } from '../components/EditEntrySheet'
 import type { Bucket, GoalContribution } from '../lib/data/types'
 
-const BUCKET_RING: Record<Bucket, { label: string; colors: [string, string] }> = {
-  need: { label: 'Needs', colors: ['#A78BFA', '#7C3AED'] },
-  want: { label: 'Wants', colors: ['#FF8BA0', '#FF5C7A'] },
-  saving: { label: 'Savings', colors: ['#67E8F9', '#22D3EE'] },
+const BUCKET_RING: Record<
+  Bucket,
+  { label: string; spentLabel: string; planLabel: string; colors: [string, string] }
+> = {
+  need: { label: 'Must-haves', spentLabel: 'Spent', planLabel: 'Plan', colors: ['#A78BFA', '#7C3AED'] },
+  want: { label: 'Fun stuff', spentLabel: 'Spent', planLabel: 'Plan', colors: ['#FF8BA0', '#FF5C7A'] },
+  saving: { label: 'Savings', spentLabel: 'Saved', planLabel: 'Goal', colors: ['#67E8F9', '#22D3EE'] },
 }
 
 const RECENT_FEED_INITIAL = 5
@@ -97,8 +100,9 @@ export function Dashboard() {
               )}
             </h1>
             <p className="text-[11px] text-ink-faint font-bold">
-              {formatWeekdayLong(today)} {formatDateLong(today)} · cycle day{' '}
-              {daysElapsed(today, info.cycle) + 1} of {daysInCycle(info.cycle)}
+              {formatWeekdayLong(today)} {formatDateLong(today)} · Day{' '}
+              {daysElapsed(today, info.cycle) + 1} of {daysInCycle(info.cycle)} · Pay in{' '}
+              {info.daysRemaining} day{info.daysRemaining === 1 ? '' : 's'}
             </p>
           </div>
           <StreakFlame
@@ -117,12 +121,12 @@ export function Dashboard() {
           <span className="text-3xl">🧹</span>
           <div className="flex-1 min-w-0">
             <p className="font-display font-extrabold text-sm">
-              {formatRands(sweep.amountCents)} of Wants survived last month!
+              You had {formatRands(sweep.amountCents)} fun money left last month!
             </p>
-            <p className="text-xs text-ink-soft">Sweep it into a savings goal?</p>
+            <p className="text-xs text-ink-soft">Put it in a savings goal?</p>
           </div>
           <Button3D size="sm" variant="aqua" onClick={() => setSweepOpen(true)}>
-            Sweep
+            Save it
           </Button3D>
         </Card>
       )}
@@ -149,30 +153,42 @@ export function Dashboard() {
             glow={sts.status === 'winning' ? 'lime' : 'none'}
             className="text-center py-6 relative overflow-hidden !border-transparent"
           >
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-ink-faint">
-              Safe to spend today
+            <p className="text-xs font-bold uppercase tracking-[0.15em] text-ink-faint">
+              Fun money for today
+            </p>
+            <p className="text-[11px] text-ink-soft font-semibold mt-0.5 mb-1">
+              For treats &amp; fun — not rent or bills
             </p>
             <div className={`font-display font-extrabold text-[56px] leading-tight ${heroClass}`}>
               <CountUp value={sts.dailyCents} format={(v) => formatZAR(v)} />
             </div>
-            <p className="text-sm text-ink-soft font-semibold">
+            <div className="text-sm text-ink-soft font-semibold flex flex-col gap-1 mt-1">
               {sts.status === 'over' ? (
-                <>Wants budget is done for this cycle — breathe, then recover 💪</>
+                <p>You used all your fun money this month. Spend less until pay day 💪</p>
               ) : (
                 <>
-                  {formatRands(sts.weekCents)} this week ·{' '}
-                  {formatRands(Math.max(0, sts.remainingCents))} left · {info.daysRemaining} day
-                  {info.daysRemaining === 1 ? '' : 's'} to payday
+                  <p>
+                    <span className="text-ink-faint">This week:</span>{' '}
+                    {formatRands(sts.weekCents)}
+                  </p>
+                  <p>
+                    <span className="text-ink-faint">Still left for fun:</span>{' '}
+                    {formatRands(Math.max(0, sts.remainingCents))}
+                  </p>
+                  <p>
+                    <span className="text-ink-faint">Pay day in:</span> {info.daysRemaining} day
+                    {info.daysRemaining === 1 ? '' : 's'}
+                  </p>
                 </>
               )}
-            </p>
+            </div>
             {canMarkNoSpend && (
               <button
                 onClick={() => void markNoSpendDay()}
                 className="mt-3 px-4 py-1.5 rounded-full text-xs font-display font-extrabold
                            bg-lime/15 text-lime border border-lime/40 active:scale-95 transition-transform"
               >
-                🙅 No-spend day so far — bank +75 XP
+                🙅 No spending today — +75 XP
               </button>
             )}
           </Card>
@@ -200,9 +216,9 @@ export function Dashboard() {
               </ProgressRing>
               <p className="font-display font-extrabold text-xs mt-2">{BUCKET_RING[bucket].label}</p>
               <p className="text-[10px] text-ink-faint font-bold text-center leading-tight">
-                {formatRands(used)}
+                {BUCKET_RING[bucket].spentLabel} {formatRands(used)}
                 <br />
-                of {formatRands(allocated)}
+                {BUCKET_RING[bucket].planLabel} {formatRands(allocated)}
               </p>
             </Card>
           )
@@ -226,41 +242,41 @@ export function Dashboard() {
             left for {profile.funFundName}
           </p>
           <p className="text-xs text-ink-soft">
-            {profile.funFundNote} · {formatRands(info.funFund.spentCents)} of{' '}
-            {formatRands(info.funFund.budgetCents)} used this cycle
+            Spent {formatRands(info.funFund.spentCents)} · You get{' '}
+            {formatRands(info.funFund.budgetCents)} this month
           </p>
         </div>
       </Card>
 
       {/* This month */}
       <div className="grid grid-cols-3 gap-3 mb-4">
-        <MiniStat label="Income in" cents={info.incomeCents} tone="text-lime" />
-        <MiniStat label="Money out" cents={info.moneyOutCents} tone="text-coral" />
-        <MiniStat label="Saved so far" cents={info.savedCents} tone="text-aqua" />
+        <MiniStat label="Money in" cents={info.incomeCents} tone="text-lime" />
+        <MiniStat label="Money spent" cents={info.moneyOutCents} tone="text-coral" />
+        <MiniStat label="Put in savings" cents={info.savedCents} tone="text-aqua" />
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-4">
         <Link to="/months">
           <Card className="text-center py-2.5 px-1">
-            <span className="font-display font-extrabold text-xs">📆 Months</span>
+            <span className="font-display font-extrabold text-xs">📆 Past months</span>
           </Card>
         </Link>
         <Link to="/wealth">
           <Card className="text-center py-2.5 px-1">
-            <span className="font-display font-extrabold text-xs">💎 Wealth</span>
+            <span className="font-display font-extrabold text-xs">💎 All my money</span>
           </Card>
         </Link>
       </div>
 
       {/* Feed */}
       <div className="mb-2">
-        <SectionTitle>Recent</SectionTitle>
+        <SectionTitle>What you logged</SectionTitle>
       </div>
       {feed.length === 0 ? (
         <EmptyState
           mood="happy"
-          title="Nothing logged yet"
-          message="Tap the big + button and log your first expense — it takes 5 seconds, promise."
+          title="Nothing here yet"
+          message="Tap the + button to add money you spent or money you got."
         />
       ) : (
         <div className="flex flex-col gap-2">
@@ -339,16 +355,16 @@ export function Dashboard() {
       <EditEntrySheet entry={editing} onClose={() => setEditing(null)} />
 
       {/* Sweep sheet */}
-      <Sheet open={sweepOpen} onClose={() => setSweepOpen(false)} title="Sweep leftovers into…">
+      <Sheet open={sweepOpen} onClose={() => setSweepOpen(false)} title="Save leftover fun money">
         {sweep && (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-ink-soft">
-              <b className="text-aqua">{formatRands(sweep.amountCents)}</b> of unspent Wants from last
-              cycle. Pick a goal:
+              You had <b className="text-aqua">{formatRands(sweep.amountCents)}</b> fun money left
+              last month. Pick a goal to save it in:
             </p>
             {sortedGoals.length === 0 && (
               <p className="text-sm text-ink-faint">
-                No goals yet — create one on the Goals tab first! 🏆
+                Make a savings goal first on the Goals tab 🏆
               </p>
             )}
             {sortedGoals.map((goal) => (
@@ -383,9 +399,9 @@ function MiniStat({ label, cents, tone }: { label: string; cents: number; tone: 
 }
 
 const CONTRIBUTION_LABEL: Record<GoalContribution['source'], string> = {
-  manual: 'Manual save',
-  auto: 'Auto-allocated',
-  sweep: 'Wants sweep',
+  manual: 'You saved',
+  auto: 'Auto-save',
+  sweep: 'Leftovers saved',
 }
 
 function ContributionFeedRow({
