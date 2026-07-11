@@ -27,7 +27,7 @@ export function XPBar() {
         <div className="flex items-baseline justify-between mb-1">
           <span className="font-display font-extrabold text-sm truncate">{progress.rank.name}</span>
           <span className="text-xs text-ink-faint font-bold shrink-0 ml-2">
-            {progress.intoLevel} / {progress.forNext} XP
+            {progress.intoLevel} / {progress.forNext} points
           </span>
         </div>
         <ProgressBar

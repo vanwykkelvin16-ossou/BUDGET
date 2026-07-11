@@ -33,7 +33,6 @@ export interface CycleInfo {
   /** Contributions (manual + auto + sweep) made during this cycle. */
   savedCents: number
   moneyOutCents: number
-  projectedSavingsCents: number
   sts: StsResult
   funFund: { budgetCents: number; spentCents: number; remainingCents: number }
 }
@@ -77,7 +76,6 @@ export function computeCycleInfo(data: AppData, today: string): CycleInfo | null
     spent,
     savedCents,
     moneyOutCents,
-    projectedSavingsCents: incomeCents - moneyOutCents,
     sts,
     funFund: {
       budgetCents: funBudget,
