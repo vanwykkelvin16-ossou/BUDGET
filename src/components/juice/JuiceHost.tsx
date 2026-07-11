@@ -11,7 +11,7 @@ import { useJuiceStore, type JuiceEvent } from '../../state/juiceStore'
 import { playChime, playCoin, playLevelUp } from '../../lib/sound'
 import { Button3D } from '../ui/Button3D'
 import { Randy, RANDY_LOGO_SRC } from '../ui/Randy'
-import { RankCrest } from '../ui/RankCrest'
+import { RankLevelBadge } from '../ui/RankLevelBadge'
 import { formatRands } from '../../lib/money'
 
 let coinShape: confetti.Shape | null = null
@@ -234,14 +234,11 @@ export function JuiceHost() {
               {overlay.kind === 'levelup' && (
                 <>
                   <motion.div
-                    initial={{ rotate: -12, scale: 0 }}
-                    animate={{ rotate: 0, scale: 1 }}
-                    transition={{ type: 'spring', stiffness: 200, damping: 12, delay: 0.15 }}
-                    className="w-24 h-24 rounded-[28px] bg-gradient-to-b from-violet-soft to-violet
-                               border-b-8 border-violet-deep shadow-glow-violet
-                               flex items-center justify-center text-5xl"
+                    initial={{ rotate: -8, scale: 0.92, opacity: 0 }}
+                    animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 320, damping: 20 }}
                   >
-                    <RankCrest crest={overlay.rank.crest} size={56} />
+                    <RankLevelBadge rank={overlay.rank} level={overlay.level} size="lg" />
                   </motion.div>
                   <div>
                     <p className="font-display font-extrabold text-3xl text-gradient-gold animate-shimmer">

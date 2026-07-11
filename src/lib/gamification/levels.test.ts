@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   levelForXp,
   levelProgress,
+  rankBadgeStyle,
   rankForLevel,
   unlockedThemes,
   xpForLevel,
@@ -47,6 +48,17 @@ describe('ranks', () => {
     expect(rankForLevel(15).name).toBe('Wealth Wizard')
     expect(rankForLevel(20).name).toBe('Rand Royalty')
     expect(rankForLevel(99).name).toBe('Rand Royalty')
+  })
+
+  it('maps each rank to a badge style', () => {
+    for (const rank of ['rookie', 'collector', 'master', 'wizard', 'royalty'] as const) {
+      const style = rankBadgeStyle(rankForLevel(rank === 'rookie' ? 1 : rank === 'collector' ? 5 : rank === 'master' ? 10 : rank === 'wizard' ? 15 : 20))
+      expect(style.gradient).toBeTruthy()
+      expect(style.border).toBeTruthy()
+      expect(style.glow).toBeTruthy()
+    }
+    expect(rankBadgeStyle(rankForLevel(1)).gradient).toContain('violet')
+    expect(rankBadgeStyle(rankForLevel(5)).gradient).toContain('lime')
   })
 
   it('unlocks one theme per rank reached', () => {

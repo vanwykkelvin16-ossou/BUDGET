@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useAppStore } from '../../state/appStore'
 import { levelProgress } from '../../lib/gamification/levels'
 import { ProgressBar } from './ProgressBar'
-import { RankCrest } from './RankCrest'
+import { RankLevelBadge } from './RankLevelBadge'
 
 /** Glowing XP bar with level crest — lives at the top of the dashboard. */
 export function XPBar() {
@@ -12,17 +12,7 @@ export function XPBar() {
 
   return (
     <div className="flex items-center gap-3">
-      <div
-        className="flex flex-col items-center justify-center w-12 h-12 rounded-2xl shrink-0
-                   bg-gradient-to-b from-violet-soft to-violet border-b-4 border-violet-deep
-                   shadow-glow-violet"
-        title={progress.rank.name}
-      >
-        <RankCrest crest={progress.rank.crest} size={22} />
-        <span className="font-display font-extrabold text-[10px] text-white leading-tight">
-          LV{progress.level}
-        </span>
-      </div>
+      <RankLevelBadge rank={progress.rank} level={progress.level} size="sm" />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline justify-between mb-1">
           <span className="font-display font-extrabold text-sm truncate">{progress.rank.name}</span>
