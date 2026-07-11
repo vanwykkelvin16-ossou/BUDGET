@@ -187,11 +187,11 @@ export function Onboarding() {
 
               <div className="grid grid-cols-2 gap-3">
                 <SignupField
-                  label="First name"
+                  label="Name"
                   value={name}
                   onChange={setName}
                   ok={nameOk}
-                  placeholder="Kelvin"
+                  placeholder="Name"
                   autoFocus
                 />
                 <SignupField
@@ -199,7 +199,7 @@ export function Onboarding() {
                   value={surname}
                   onChange={setSurname}
                   ok={surnameOk}
-                  placeholder="van Wyk"
+                  placeholder="Surname"
                 />
               </div>
               <SignupField
@@ -207,7 +207,7 @@ export function Onboarding() {
                 value={username}
                 onChange={(v) => setUsername(v.replace(/\s/g, ''))}
                 ok={usernameOk}
-                placeholder="kelvin_v"
+                placeholder="Username"
                 prefix="@"
                 hint="3–20 letters, numbers, _ or ."
               />
