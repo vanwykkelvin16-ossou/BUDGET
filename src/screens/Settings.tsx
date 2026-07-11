@@ -537,7 +537,9 @@ function RecurringCard() {
       <div className="flex items-center justify-between mb-2">
         <div>
           <p className="font-display font-extrabold text-sm">🔁 Recurring / debit orders</p>
-          <p className="text-[10px] text-ink-faint font-bold">Auto-log on their day each month</p>
+          <p className="text-[10px] text-ink-faint font-bold">
+            Shows in your dashboard &amp; home page when its day hits
+          </p>
         </div>
         <Button3D size="sm" variant="ghost" onClick={() => setOpen(true)}>
           + Add

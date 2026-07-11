@@ -37,7 +37,12 @@ import {
 } from '../lib/engine/cycle'
 import { allocateIncome, splitsAreValid } from '../lib/engine/allocate'
 import { wasUnderStsDay } from '../lib/engine/safeToSpend'
-import { dueOccurrences, occurrenceKey } from '../lib/engine/recurring'
+import {
+  materializeAllRecurring,
+  purgeRecurringLedgerEntries,
+  recurringBackfillFrom,
+  syncRecurringLedgerEntries,
+} from '../lib/engine/recurring'
 import { buildSnapshot, incomesInCycle, sumCents } from '../lib/engine/insights'
 import { reconcile } from '../lib/engine/reconcile'
 import { alreadyAwarded, makeXpEvent, totalXp } from '../lib/gamification/xp'
@@ -179,6 +184,16 @@ function applyStreak(data: AppData, today: string, juice: JuiceEvent[]) {
 
 const MAX_EVAL_DAYS = 60
 
+async function applyHousekeeping(
+  get: () => AppState,
+  set: (partial: Partial<AppState>) => void,
+): Promise<void> {
+  const today = todaySAST()
+  const data = runHousekeeping(get().data, today, nowISO())
+  set({ data, currentDay: today })
+  await store.persist(data)
+}
+
 export function runHousekeeping(input: AppData, today: string, when: string): AppData {
   const data = structuredClone(input)
   // Older persisted data may predate newer collections/fields.
@@ -194,38 +209,7 @@ export function runHousekeeping(input: AppData, today: string, when: string): Ap
   profile.phone ??= ''
 
   /* 1 — materialise recurring items due since last time. */
-  for (const item of data.recurring) {
-    const from = item.lastMaterialized ?? addDays(today, -1)
-    for (const due of dueOccurrences(item, from, today)) {
-      const key = occurrenceKey(item.id, due)
-      if (item.kind === 'expense' && item.categoryId) {
-        if (!data.transactions.some((t) => t.occurrenceKey === key)) {
-          data.transactions.push({
-            id: uid(),
-            amountCents: item.amountCents,
-            categoryId: item.categoryId,
-            note: item.name,
-            date: due,
-            createdAt: when,
-            occurrenceKey: key,
-          })
-        }
-      } else if (item.kind === 'income' && item.source) {
-        if (!data.incomes.some((i) => i.occurrenceKey === key)) {
-          data.incomes.push({
-            id: uid(),
-            amountCents: item.amountCents,
-            source: item.source,
-            note: item.name,
-            date: due,
-            createdAt: when,
-            occurrenceKey: key,
-          })
-        }
-      }
-    }
-    item.lastMaterialized = today
-  }
+  materializeAllRecurring(data, today, when, uid)
 
   /* 2 — auto-allocate to goals once per cycle after salary lands. */
   const cycle = cycleFor(today, profile.payDate)
@@ -737,9 +721,13 @@ export const useAppStore = create<AppState>((set, get) => {
         }
       }),
 
-    addRecurring: async (params) =>
-      commit((data, _juice, today) => {
+    addRecurring: async (params) => {
+      await commit((data, _juice, today) => {
         if (params.amountCents <= 0) return false
+        const profile = data.profile
+        if (!profile) return false
+        const cycle = cycleFor(today, profile.payDate)
+        const accountStart = profile.createdAt.slice(0, 10)
         data.recurring.push({
           id: uid(),
           kind: params.kind,
@@ -749,27 +737,39 @@ export const useAppStore = create<AppState>((set, get) => {
           categoryId: params.categoryId,
           source: params.source,
           active: true,
-          // Fires from today onward (a due date today materialises now).
-          lastMaterialized: addDays(today, -1),
+          // Backfill any due dates already passed in this pay cycle.
+          lastMaterialized: recurringBackfillFrom(cycle.start, accountStart),
           createdAt: nowISO(),
         })
-      }).then(async () => {
-        // Materialise anything due immediately (e.g. dayOfMonth === today).
-        const today = todaySAST()
-        const data = runHousekeeping(useAppStore.getState().data, today, nowISO())
-        set({ data })
-        await store.persist(data)
-      }),
+      })
+      await applyHousekeeping(get, set)
+    },
 
-    updateRecurring: async (id, patch) =>
-      commit((data) => {
+    updateRecurring: async (id, patch) => {
+      await commit((data, _juice, today) => {
         const item = data.recurring.find((r) => r.id === id)
         if (!item) return false
+        const wasInactive = !item.active
+        const dayChanged =
+          patch.dayOfMonth !== undefined && patch.dayOfMonth !== item.dayOfMonth
         Object.assign(item, patch)
-      }),
+        if (dayChanged || (patch.active === true && wasInactive)) {
+          purgeRecurringLedgerEntries(data, id)
+          const profile = data.profile
+          if (!profile) return false
+          const cycle = cycleFor(today, profile.payDate)
+          const accountStart = profile.createdAt.slice(0, 10)
+          item.lastMaterialized = recurringBackfillFrom(cycle.start, accountStart)
+        } else {
+          syncRecurringLedgerEntries(data, item)
+        }
+      })
+      await applyHousekeeping(get, set)
+    },
 
     deleteRecurring: async (id) =>
       commit((data) => {
+        purgeRecurringLedgerEntries(data, id)
         data.recurring = data.recurring.filter((r) => r.id !== id)
       }),
 
