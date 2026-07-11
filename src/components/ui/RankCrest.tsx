@@ -1,4 +1,4 @@
-import { RANDY_LOGO_SRC } from './Randy'
+import { RandyIcon } from './Randy'
 
 interface Props {
   crest: string
@@ -10,19 +10,25 @@ interface Props {
 export function RankCrest({ crest, size = 24, className = '' }: Props) {
   if (crest === 'randy') {
     return (
-      <img
-        src={RANDY_LOGO_SRC}
-        alt="Randy"
-        width={size}
-        height={size}
-        className={['object-contain', className].filter(Boolean).join(' ')}
-        draggable={false}
+      <RandyIcon
+        size={size}
+        className={['shrink-0', className].filter(Boolean).join(' ')}
       />
     )
   }
 
   return (
-    <span className={className} style={{ fontSize: size, lineHeight: 1 }}>
+    <span
+      className={[
+        'inline-flex items-center justify-center shrink-0 leading-none select-none',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.82) }}
+      role="img"
+      aria-hidden
+    >
       {crest}
     </span>
   )

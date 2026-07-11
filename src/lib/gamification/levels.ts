@@ -21,6 +21,44 @@ export const RANKS: Rank[] = [
   { id: 'royalty', name: 'Rand Royalty', crest: '👑', minLevel: 20, themeId: 'royalty' },
 ]
 
+export interface RankBadgeStyle {
+  gradient: string
+  border: string
+  glow: string
+}
+
+const RANK_BADGE_STYLES: Record<string, RankBadgeStyle> = {
+  rookie: {
+    gradient: 'from-violet-soft to-violet',
+    border: 'border-violet-deep',
+    glow: 'shadow-glow-violet',
+  },
+  collector: {
+    gradient: 'from-lime to-lime-deep',
+    border: 'border-[#3f6212]',
+    glow: 'shadow-glow-lime',
+  },
+  master: {
+    gradient: 'from-coral to-coral-deep',
+    border: 'border-coral-deep',
+    glow: 'shadow-glow-ember',
+  },
+  wizard: {
+    gradient: 'from-aqua to-aqua-deep',
+    border: 'border-aqua-deep',
+    glow: 'shadow-glow-aqua',
+  },
+  royalty: {
+    gradient: 'from-sun to-gold',
+    border: 'border-[#c2410c]',
+    glow: 'shadow-glow-gold',
+  },
+}
+
+export function rankBadgeStyle(rank: Rank): RankBadgeStyle {
+  return RANK_BADGE_STYLES[rank.themeId] ?? RANK_BADGE_STYLES.rookie
+}
+
 /** Cumulative XP required to *reach* level n (level 1 = 0 XP). */
 export function xpForLevel(level: number): number {
   if (level <= 1) return 0

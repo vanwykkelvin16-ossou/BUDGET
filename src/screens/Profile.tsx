@@ -17,6 +17,7 @@ import { ProgressBar } from '../components/ui/ProgressBar'
 import { Sheet } from '../components/ui/Sheet'
 import { Randy } from '../components/ui/Randy'
 import { RankCrest } from '../components/ui/RankCrest'
+import { RankLevelBadge } from '../components/ui/RankLevelBadge'
 
 const PHASE2 = [
   { icon: '🔔', title: 'Nudges & notifications', blurb: 'Weekly digest, overspend warnings, salary-day prompts.' },
@@ -54,14 +55,7 @@ export function Profile() {
 
       {/* Crest card */}
       <Card glow="violet" className="flex items-center gap-4 mb-4">
-        <div
-          className="w-20 h-20 rounded-[24px] bg-gradient-to-b from-violet-soft to-violet
-                     border-b-8 border-violet-deep shadow-glow-violet
-                     flex flex-col items-center justify-center shrink-0"
-        >
-          <RankCrest crest={progress.rank.crest} size={36} />
-          <span className="font-display font-extrabold text-xs text-white">LV{progress.level}</span>
-        </div>
+        <RankLevelBadge rank={progress.rank} level={progress.level} size="md" />
         <div className="flex-1 min-w-0">
           <h2 className="font-display font-extrabold text-lg truncate">
             {profile.displayName} {profile.surname}
@@ -157,7 +151,9 @@ export function Profile() {
                   className="w-8 h-8 rounded-full border-b-4"
                   style={{ background: THEME_SWATCH[rank.themeId], borderColor: '#00000055' }}
                 />
-                <RankCrest crest={isUnlocked ? rank.crest : '🔒'} size={18} />
+                <span className="inline-flex items-center justify-center w-8 h-8">
+                  <RankCrest crest={isUnlocked ? rank.crest : '🔒'} size={20} />
+                </span>
               </button>
             )
           })}
