@@ -5,12 +5,11 @@
 
 import { describe, expect, it } from 'vitest'
 import { buildDemoData } from '../lib/data/seedDemo'
-import { DEFAULT_SPLITS } from '../lib/engine/allocate'
 import { buildSnapshot } from '../lib/engine/insights'
 import { cycleFor } from '../lib/engine/cycle'
 import { todaySAST } from '../lib/dates'
 import { computeCycleInfo } from './selectors'
-import type { AppData, Bucket } from '../lib/data/types'
+import type { AppData } from '../lib/data/types'
 
 function auditCycle(data: AppData, today: string) {
   const info = computeCycleInfo(data, today)
