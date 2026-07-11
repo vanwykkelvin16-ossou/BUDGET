@@ -15,7 +15,7 @@ export interface Rank {
 
 export const RANKS: Rank[] = [
   { id: 'rookie', name: 'Budget Rookie', crest: '🌱', minLevel: 1, themeId: 'rookie' },
-  { id: 'collector', name: 'Coin Collector', crest: '🪙', minLevel: 5, themeId: 'collector' },
+  { id: 'collector', name: 'Coin Collector', crest: 'randy', minLevel: 5, themeId: 'collector' },
   { id: 'master', name: 'Money Master', crest: '💎', minLevel: 10, themeId: 'master' },
   { id: 'wizard', name: 'Wealth Wizard', crest: '🧙', minLevel: 15, themeId: 'wizard' },
   { id: 'royalty', name: 'Rand Royalty', crest: '👑', minLevel: 20, themeId: 'royalty' },

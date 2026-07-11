@@ -11,7 +11,7 @@ import { Button3D } from '../components/ui/Button3D'
 import { Card } from '../components/ui/Card'
 import { NumberPad } from '../components/ui/NumberPad'
 import { useAmountEntry } from '../components/ui/useAmountEntry'
-import { Randy } from '../components/ui/Randy'
+import { Randy, RandyIcon } from '../components/ui/Randy'
 import { adjustSplit, allocateIncome, DEFAULT_SPLITS } from '../lib/engine/allocate'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
 import type { Bucket, BucketSplits } from '../lib/data/types'
@@ -149,7 +149,7 @@ export function Onboarding() {
         >
           {step === 'welcome' && (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-5">
-              <Randy mood="celebrating" size={150} className="animate-pop-in" />
+              <Randy mood="celebrating" size={170} className="animate-pop-in" />
               <div>
                 <h1 className="font-display font-extrabold text-4xl text-gradient-violet">
                   PennyPlay
@@ -177,7 +177,7 @@ export function Onboarding() {
             <div className="flex-1 flex flex-col gap-3">
               <header className="text-center">
                 <div className="flex justify-center mb-1">
-                  <Randy mood="wink" size={64} />
+                  <Randy mood="wink" size={120} />
                 </div>
                 <h2 className="font-display font-extrabold text-2xl">Create your profile</h2>
                 <p className="text-ink-soft text-sm mt-1">
@@ -187,11 +187,11 @@ export function Onboarding() {
 
               <div className="grid grid-cols-2 gap-3">
                 <SignupField
-                  label="First name"
+                  label="Name"
                   value={name}
                   onChange={setName}
                   ok={nameOk}
-                  placeholder="Kelvin"
+                  placeholder="Name"
                   autoFocus
                 />
                 <SignupField
@@ -199,7 +199,7 @@ export function Onboarding() {
                   value={surname}
                   onChange={setSurname}
                   ok={surnameOk}
-                  placeholder="van Wyk"
+                  placeholder="Surname"
                 />
               </div>
               <SignupField
@@ -207,7 +207,7 @@ export function Onboarding() {
                 value={username}
                 onChange={(v) => setUsername(v.replace(/\s/g, ''))}
                 ok={usernameOk}
-                placeholder="kelvin_v"
+                placeholder="Username"
                 prefix="@"
                 hint="3–20 letters, numbers, _ or ."
               />
@@ -231,7 +231,8 @@ export function Onboarding() {
 
               {signupOk && (
                 <p className="text-center text-sm text-ink-soft animate-pop-in">
-                  Nice to meet you, <b className="text-gradient-gold">{name.trim()}</b>! 🪙
+                  Nice to meet you, <b className="text-gradient-gold">{name.trim()}</b>!{' '}
+                  <RandyIcon size={18} className="inline" />
                 </p>
               )}
               <Button3D size="lg" full disabled={!signupOk} onClick={() => setStep('salary')}>
@@ -341,7 +342,7 @@ export function Onboarding() {
 
           {step === 'done' && (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-5">
-              <Randy mood="wink" size={130} className="animate-pop-in" />
+              <Randy mood="wink" size={150} className="animate-pop-in" />
               <div>
                 <h2 className="font-display font-extrabold text-3xl text-gradient-win">
                   Ready, {name.trim().split(' ')[0] || 'friend'}!
