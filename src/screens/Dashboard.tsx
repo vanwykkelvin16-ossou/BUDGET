@@ -25,7 +25,6 @@ import { XPBar } from '../components/ui/XPBar'
 import { StreakFlame } from '../components/ui/StreakFlame'
 import { CategoryBadge } from '../components/ui/CategoryBadge'
 import { EmptyState } from '../components/ui/EmptyState'
-import { Randy } from '../components/ui/Randy'
 import { Sheet } from '../components/ui/Sheet'
 import { SectionTitle } from '../components/ui/SectionTitle'
 import { EditEntrySheet, type LedgerEntry } from '../components/EditEntrySheet'
@@ -125,49 +124,60 @@ export function Dashboard() {
         </Card>
       )}
 
-      {/* Hero: Safe-to-Spend — wrapped in a slowly rotating gradient ring */}
-      <div className="relative rounded-[26px] p-[2px] overflow-hidden mb-4">
-        <div
-          aria-hidden
-          className="absolute inset-[-150%] animate-[gb-spin_9s_linear_infinite]"
-          style={{
-            background:
-              'conic-gradient(from 0deg, #7c3aed, #22d3ee, #a3e635, #fb923c, #ff5c7a, #7c3aed)',
-            opacity: sts.status === 'winning' ? 0.9 : 0.45,
-          }}
-        />
-        <Card glow={sts.status === 'winning' ? 'lime' : 'none'} className="text-center py-6 relative overflow-hidden !border-transparent">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-ink-faint">
-          Safe to spend today
-        </p>
-        <div className={`font-display font-extrabold text-[56px] leading-tight ${heroClass}`}>
-          <CountUp value={sts.dailyCents} format={(v) => formatZAR(v)} />
+      {/* Hero: Safe-to-Spend — Randy perched on the gradient rim */}
+      <div className="relative mb-4">
+        <div className="flex justify-center relative z-10 pointer-events-none">
+          <img
+            src="/randy-logo.png"
+            alt="Randy"
+            width={116}
+            height={116}
+            className="w-[7.25rem] h-[7.25rem] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.35)]"
+            draggable={false}
+          />
         </div>
-        <p className="text-sm text-ink-soft font-semibold">
-          {sts.status === 'over' ? (
-            <>Wants budget is done for this cycle — breathe, then recover 💪</>
-          ) : (
-            <>
-              {formatRands(sts.weekCents)} this week · {formatRands(Math.max(0, sts.remainingCents))}{' '}
-              left · {info.daysRemaining} day{info.daysRemaining === 1 ? '' : 's'} to payday
-            </>
-          )}
-        </p>
-        {sts.status === 'over' && (
-          <div className="absolute -right-3 -bottom-4 opacity-90">
-            <Randy mood="worried" size={76} />
-          </div>
-        )}
-        {canMarkNoSpend && (
-          <button
-            onClick={() => void markNoSpendDay()}
-            className="mt-3 px-4 py-1.5 rounded-full text-xs font-display font-extrabold
-                       bg-lime/15 text-lime border border-lime/40 active:scale-95 transition-transform"
+        <div className="relative rounded-[26px] p-[2px] overflow-hidden">
+          <div
+            aria-hidden
+            className="absolute inset-[-150%] animate-[gb-spin_9s_linear_infinite]"
+            style={{
+              background:
+                'conic-gradient(from 0deg, #7c3aed, #22d3ee, #a3e635, #fb923c, #ff5c7a, #7c3aed)',
+              opacity: sts.status === 'winning' ? 0.9 : 0.45,
+            }}
+          />
+          <Card
+            glow={sts.status === 'winning' ? 'lime' : 'none'}
+            className="text-center py-6 relative overflow-hidden !border-transparent"
           >
-            🙅 No-spend day so far — bank +75 XP
-          </button>
-        )}
-        </Card>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-ink-faint">
+              Safe to spend today
+            </p>
+            <div className={`font-display font-extrabold text-[56px] leading-tight ${heroClass}`}>
+              <CountUp value={sts.dailyCents} format={(v) => formatZAR(v)} />
+            </div>
+            <p className="text-sm text-ink-soft font-semibold">
+              {sts.status === 'over' ? (
+                <>Wants budget is done for this cycle — breathe, then recover 💪</>
+              ) : (
+                <>
+                  {formatRands(sts.weekCents)} this week ·{' '}
+                  {formatRands(Math.max(0, sts.remainingCents))} left · {info.daysRemaining} day
+                  {info.daysRemaining === 1 ? '' : 's'} to payday
+                </>
+              )}
+            </p>
+            {canMarkNoSpend && (
+              <button
+                onClick={() => void markNoSpendDay()}
+                className="mt-3 px-4 py-1.5 rounded-full text-xs font-display font-extrabold
+                           bg-lime/15 text-lime border border-lime/40 active:scale-95 transition-transform"
+              >
+                🙅 No-spend day so far — bank +75 XP
+              </button>
+            )}
+          </Card>
+        </div>
       </div>
 
       {/* Bucket rings */}
