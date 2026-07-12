@@ -30,13 +30,10 @@ import { SectionTitle } from '../components/ui/SectionTitle'
 import { EditEntrySheet, type LedgerEntry } from '../components/EditEntrySheet'
 import type { Bucket, GoalContribution } from '../lib/data/types'
 
-const BUCKET_RING: Record<
-  Bucket,
-  { label: string; icon: string; colors: [string, string] }
-> = {
-  need: { label: 'Must-haves', icon: '🏠', colors: ['#A78BFA', '#7C3AED'] },
-  want: { label: 'Fun stuff', icon: '🎉', colors: ['#FF8BA0', '#FF5C7A'] },
-  saving: { label: 'Savings', icon: '🐷', colors: ['#67E8F9', '#22D3EE'] },
+const BUCKET_RING: Record<Bucket, { label: string; colors: [string, string] }> = {
+  need: { label: 'Must-haves', colors: ['#A78BFA', '#7C3AED'] },
+  want: { label: 'Fun stuff', colors: ['#FF8BA0', '#FF5C7A'] },
+  saving: { label: 'Savings', colors: ['#67E8F9', '#22D3EE'] },
 }
 
 const RECENT_FEED_INITIAL = 5
@@ -237,7 +234,7 @@ export function Dashboard() {
                 </span>
               </ProgressRing>
               <p className="font-display font-extrabold text-xs mt-2">
-                {BUCKET_RING[bucket].icon} {BUCKET_RING[bucket].label}
+                {BUCKET_RING[bucket].label}
               </p>
               <p className={`text-[11px] font-display font-extrabold leading-tight mt-1 ${headline.tone}`}>
                 {headline.text}
