@@ -32,11 +32,11 @@ import type { Bucket, GoalContribution } from '../lib/data/types'
 
 const BUCKET_RING: Record<
   Bucket,
-  { label: string; spentLabel: string; planLabel: string; colors: [string, string] }
+  { label: string; icon: string; colors: [string, string] }
 > = {
-  need: { label: 'Must-haves', spentLabel: 'Spent', planLabel: 'Plan', colors: ['#A78BFA', '#7C3AED'] },
-  want: { label: 'Fun stuff', spentLabel: 'Spent', planLabel: 'Plan', colors: ['#FF8BA0', '#FF5C7A'] },
-  saving: { label: 'Savings', spentLabel: 'Saved', planLabel: 'Goal', colors: ['#67E8F9', '#22D3EE'] },
+  need: { label: 'Must-haves', icon: '🏠', colors: ['#A78BFA', '#7C3AED'] },
+  want: { label: 'Fun stuff', icon: '🎉', colors: ['#FF8BA0', '#FF5C7A'] },
+  saving: { label: 'Savings', icon: '🐷', colors: ['#67E8F9', '#22D3EE'] },
 }
 
 const RECENT_FEED_INITIAL = 5
@@ -210,24 +210,25 @@ export function Dashboard() {
           const used = bucket === 'saving' ? info.savedCents : info.spent[bucket]
           const pct = allocated > 0 ? used / allocated : used > 0 ? 2 : 0
           const overCents = used - allocated
-          // The ring fills to 100% max; the line below tells the over/under
-          // story in words instead of a confusing "160%".
-          const line =
+          // The ring fills to 100% max. One bold headline says what matters
+          // ("R 30 000 left" / "R 22 500 over plan"), one faint line gives
+          // the context ("R 0 of R 30 000") — no jargon, no 160%.
+          const headline =
             bucket === 'saving'
               ? overCents > 0
                 ? { text: `${formatRands(overCents)} past goal 🎉`, tone: 'text-aqua' }
                 : overCents === 0 && allocated > 0
                   ? { text: 'Goal reached 🎉', tone: 'text-aqua' }
-                  : { text: `${formatRands(-overCents)} to go`, tone: 'text-ink-faint' }
+                  : { text: `${formatRands(-overCents)} to go`, tone: 'text-ink' }
               : overCents > 0
                 ? { text: `${formatRands(overCents)} over plan`, tone: 'text-coral' }
-                : { text: `${formatRands(-overCents)} left`, tone: 'text-ink-faint' }
+                : { text: `${formatRands(-overCents)} left`, tone: 'text-ink' }
           return (
-            <Card key={bucket} className="flex flex-col items-center py-3 px-1">
+            <Card key={bucket} className="flex flex-col items-center py-3.5 px-1 text-center">
               <ProgressRing
                 pct={pct}
-                size={76}
-                stroke={9}
+                size={72}
+                stroke={8}
                 colors={BUCKET_RING[bucket].colors}
                 overColor={bucket === 'saving' ? undefined : '#FF5C7A'}
               >
@@ -235,14 +236,14 @@ export function Dashboard() {
                   {Math.min(100, Math.round(pct * 100))}%
                 </span>
               </ProgressRing>
-              <p className="font-display font-extrabold text-xs mt-2">{BUCKET_RING[bucket].label}</p>
-              <p className="text-[10px] text-ink-faint font-bold text-center leading-tight">
-                {BUCKET_RING[bucket].spentLabel} {formatRands(used)}
-                <br />
-                {BUCKET_RING[bucket].planLabel} {formatRands(allocated)}
+              <p className="font-display font-extrabold text-xs mt-2">
+                {BUCKET_RING[bucket].icon} {BUCKET_RING[bucket].label}
               </p>
-              <p className={`text-[10px] font-bold text-center leading-tight mt-0.5 ${line.tone}`}>
-                {line.text}
+              <p className={`text-[11px] font-display font-extrabold leading-tight mt-1 ${headline.tone}`}>
+                {headline.text}
+              </p>
+              <p className="text-[10px] text-ink-faint font-bold leading-tight mt-0.5">
+                {formatRands(used)} of {formatRands(allocated)}
               </p>
             </Card>
           )
