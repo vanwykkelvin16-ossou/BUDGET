@@ -17,9 +17,17 @@ import { ProgressBar } from '../components/ui/ProgressBar'
 import { Sheet } from '../components/ui/Sheet'
 import { Randy } from '../components/ui/Randy'
 import { RankCrest } from '../components/ui/RankCrest'
+import {
+  ensureNotificationPermission,
+  loadNotificationPrefs,
+  notificationPermission,
+  notificationsSupported,
+  saveNotificationPrefs,
+  showSystemNotification,
+  type NotificationPrefs,
+} from '../lib/notifications'
 
 const PHASE2 = [
-  { icon: '🔔', title: 'Nudges & notifications', blurb: 'Weekly digest, overspend warnings, salary-day prompts.' },
   { icon: '📄', title: 'Bank statement import', blurb: 'Drop a CSV, get everything categorised.' },
   { icon: '👫', title: 'Partner mode', blurb: 'Share a budget without sharing a headache.' },
 ]
@@ -38,6 +46,32 @@ export function Profile() {
   const resetAll = useAppStore((s) => s.resetAll)
   const [stub, setStub] = useState<(typeof PHASE2)[number] | null>(null)
   const [confirmReset, setConfirmReset] = useState(false)
+  const [notifyPrefs, setNotifyPrefs] = useState<NotificationPrefs>(loadNotificationPrefs)
+  const [notifyBlocked, setNotifyBlocked] = useState(
+    () => notificationPermission() === 'denied',
+  )
+  const [testSent, setTestSent] = useState(false)
+
+  async function changeNotify(patch: Partial<NotificationPrefs>) {
+    let next = { ...notifyPrefs, ...patch }
+    if (patch.enabled) {
+      const granted = await ensureNotificationPermission()
+      setNotifyBlocked(notificationPermission() === 'denied')
+      if (!granted) next = { ...next, enabled: false }
+    }
+    setNotifyPrefs(next)
+    saveNotificationPrefs(next)
+  }
+
+  async function sendTestNotification() {
+    const ok = await showSystemNotification({
+      key: `test:${Date.now()}`,
+      title: '🪙 PennyPlay is on the job',
+      body: "This is what a nudge looks like. You'll only get ones that matter.",
+    })
+    setTestSent(ok)
+    window.setTimeout(() => setTestSent(false), 2500)
+  }
 
   const profile = data.profile
   const progress = useMemo(() => levelProgress(profile?.xp ?? 0), [profile?.xp])
@@ -180,6 +214,64 @@ export function Profile() {
           value={profile.darkMode}
           onChange={(v) => void updateProfile({ darkMode: v })}
         />
+      </Card>
+
+      {/* Notifications */}
+      <h2 className="font-display font-extrabold text-lg mb-2">Nudges &amp; alerts</h2>
+      <Card className="mb-5 flex flex-col divide-y divide-edge">
+        {notificationsSupported() ? (
+          <>
+            <ToggleRow
+              label="🔔 Allow notifications"
+              value={notifyPrefs.enabled}
+              onChange={(v) => void changeNotify({ enabled: v })}
+            />
+            {notifyBlocked && (
+              <p className="text-xs text-coral font-bold py-2.5">
+                Notifications are blocked for this site in your browser settings — allow them
+                there, then flip the switch again.
+              </p>
+            )}
+            {notifyPrefs.enabled && (
+              <>
+                <ToggleRow
+                  label="💰 Pay day alert"
+                  value={notifyPrefs.paydayAlert}
+                  onChange={(v) => void changeNotify({ paydayAlert: v })}
+                />
+                <ToggleRow
+                  label="🚨 Overspend warning"
+                  value={notifyPrefs.overspendAlert}
+                  onChange={(v) => void changeNotify({ overspendAlert: v })}
+                />
+                <ToggleRow
+                  label="🔥 Streak rescue (after 17:00)"
+                  value={notifyPrefs.streakAlert}
+                  onChange={(v) => void changeNotify({ streakAlert: v })}
+                />
+                <ToggleRow
+                  label="📝 Evening log reminder (19:00)"
+                  value={notifyPrefs.dailyReminder}
+                  onChange={(v) => void changeNotify({ dailyReminder: v })}
+                />
+                <div className="py-2.5">
+                  <Button3D variant="ghost" size="sm" full onClick={() => void sendTestNotification()}>
+                    {testSent ? 'Sent ✓ — check your notifications' : 'Send a test nudge'}
+                  </Button3D>
+                </div>
+              </>
+            )}
+            <p className="text-[10px] text-ink-faint font-bold py-2.5">
+              Nudges show while PennyPlay is open or installed on your phone. Everything stays on
+              this device.
+            </p>
+          </>
+        ) : (
+          <p className="text-xs text-ink-faint font-bold py-2.5">
+            This browser doesn't support notifications — install PennyPlay to your home screen to
+            get nudges.
+          </p>
+        )}
       </Card>
 
       {/* Phase 2 stubs */}
