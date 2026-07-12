@@ -14,7 +14,15 @@ import {
 } from '../state/selectors'
 import { displayStreak } from '../lib/gamification/streaks'
 import { formatRands, formatZAR } from '../lib/money'
-import { formatDateLong, formatDayLabel, formatWeekdayLong, todaySAST } from '../lib/dates'
+import {
+  addDays,
+  formatDateLong,
+  formatDayLabel,
+  formatWeekdayLong,
+  parseISO,
+  todaySAST,
+  weekBounds,
+} from '../lib/dates'
 import { daysElapsed, daysInCycle } from '../lib/engine/cycle'
 import { Screen } from '../components/layout/Screen'
 import { Card } from '../components/ui/Card'
@@ -77,6 +85,29 @@ export function Dashboard() {
   )
   const visibleFeed = feed.slice(0, recentVisible)
   const hasMoreRecent = recentVisible < feed.length
+
+  // Group the visible feed into week sections ("This week", "Last week",
+  // then "9–15 June"). Entries arrive date-sorted, so weeks stay contiguous.
+  const weekSections = useMemo(() => {
+    const thisWeekStart = weekBounds(today).start
+    const sections: { start: string; label: string; entries: typeof visibleFeed }[] = []
+    for (const entry of visibleFeed) {
+      const start = weekBounds(entry.item.date).start
+      let section = sections[sections.length - 1]
+      if (!section || section.start !== start) {
+        const label =
+          start === thisWeekStart
+            ? 'This week'
+            : start === addDays(thisWeekStart, -7)
+              ? 'Last week'
+              : weekRangeLabel(start)
+        section = { start, label, entries: [] }
+        sections.push(section)
+      }
+      section.entries.push(entry)
+    }
+    return sections
+  }, [feed, recentVisible, today])
 
   const catById = new Map(data.categories.map((c) => [c.id, c]))
   const goalById = new Map(data.goals.map((g) => [g.id, g]))
@@ -314,7 +345,12 @@ export function Dashboard() {
         />
       ) : (
         <div className="flex flex-col gap-2">
-          {visibleFeed.map((entry) => (
+          {weekSections.map((section) => (
+            <div key={section.start} className="flex flex-col gap-2">
+              <p className="text-[11px] font-display font-extrabold text-ink-faint uppercase tracking-wider mt-1">
+                {section.label}
+              </p>
+              {section.entries.map((entry) => (
             <button
               key={entry.item.id}
               onClick={() => {
@@ -372,6 +408,8 @@ export function Dashboard() {
                 />
               )}
             </button>
+              ))}
+            </div>
           ))}
           {hasMoreRecent && (
             <Button3D
@@ -419,6 +457,15 @@ export function Dashboard() {
       </Sheet>
     </Screen>
   )
+}
+
+/** "9–15 June" (or "29 June – 5 July" across months) for a Monday week start. */
+function weekRangeLabel(start: string): string {
+  const end = addDays(start, 6)
+  const s = parseISO(start)
+  const e = parseISO(end)
+  if (s.m === e.m) return `${s.d}–${e.d} ${formatDateLong(end).split(' ')[1]}`
+  return `${formatDateLong(start)} – ${formatDateLong(end)}`
 }
 
 /** One small self-explaining number under the hero, e.g. "R 2 692 · to spend this week". */
