@@ -14,7 +14,15 @@ import {
 } from '../state/selectors'
 import { displayStreak } from '../lib/gamification/streaks'
 import { formatRands, formatZAR } from '../lib/money'
-import { formatDateLong, formatDayLabel, formatWeekdayLong, todaySAST } from '../lib/dates'
+import {
+  addDays,
+  formatDateLong,
+  formatDayLabel,
+  formatWeekdayLong,
+  parseISO,
+  todaySAST,
+  weekBounds,
+} from '../lib/dates'
 import { daysElapsed, daysInCycle } from '../lib/engine/cycle'
 import { Screen } from '../components/layout/Screen'
 import { Card } from '../components/ui/Card'
@@ -30,13 +38,10 @@ import { SectionTitle } from '../components/ui/SectionTitle'
 import { EditEntrySheet, type LedgerEntry } from '../components/EditEntrySheet'
 import type { Bucket, GoalContribution } from '../lib/data/types'
 
-const BUCKET_RING: Record<
-  Bucket,
-  { label: string; spentLabel: string; planLabel: string; colors: [string, string] }
-> = {
-  need: { label: 'Must-haves', spentLabel: 'Spent', planLabel: 'Plan', colors: ['#A78BFA', '#7C3AED'] },
-  want: { label: 'Fun stuff', spentLabel: 'Spent', planLabel: 'Plan', colors: ['#FF8BA0', '#FF5C7A'] },
-  saving: { label: 'Savings', spentLabel: 'Saved', planLabel: 'Goal', colors: ['#67E8F9', '#22D3EE'] },
+const BUCKET_RING: Record<Bucket, { label: string; colors: [string, string] }> = {
+  need: { label: 'Must-haves', colors: ['#A78BFA', '#7C3AED'] },
+  want: { label: 'Fun stuff', colors: ['#FF8BA0', '#FF5C7A'] },
+  saving: { label: 'Savings', colors: ['#67E8F9', '#22D3EE'] },
 }
 
 const RECENT_FEED_INITIAL = 5
@@ -80,6 +85,29 @@ export function Dashboard() {
   )
   const visibleFeed = feed.slice(0, recentVisible)
   const hasMoreRecent = recentVisible < feed.length
+
+  // Group the visible feed into week sections ("This week", "Last week",
+  // then "9–15 June"). Entries arrive date-sorted, so weeks stay contiguous.
+  const weekSections = useMemo(() => {
+    const thisWeekStart = weekBounds(today).start
+    const sections: { start: string; label: string; entries: typeof visibleFeed }[] = []
+    for (const entry of visibleFeed) {
+      const start = weekBounds(entry.item.date).start
+      let section = sections[sections.length - 1]
+      if (!section || section.start !== start) {
+        const label =
+          start === thisWeekStart
+            ? 'This week'
+            : start === addDays(thisWeekStart, -7)
+              ? 'Last week'
+              : weekRangeLabel(start)
+        section = { start, label, entries: [] }
+        sections.push(section)
+      }
+      section.entries.push(entry)
+    }
+    return sections
+  }, [feed, recentVisible, today])
 
   const catById = new Map(data.categories.map((c) => [c.id, c]))
   const goalById = new Map(data.goals.map((g) => [g.id, g]))
@@ -154,23 +182,40 @@ export function Dashboard() {
           <div className={`font-display font-extrabold text-[56px] leading-tight ${heroClass}`}>
             <CountUp value={sts.dailyCents} format={(v) => formatZAR(v)} />
           </div>
-          <div className="text-sm text-ink-soft font-semibold flex flex-col gap-1 mt-1">
+          <div className="text-sm text-ink-soft font-semibold mt-1">
             {sts.status === 'over' ? (
-              <p>You used all your fun money this month. Spend less until pay day 💪</p>
+              sts.cappedByCash ? (
+                info.leftOverCents < 0 ? (
+                  <p>
+                    <b className="text-coral">{formatRands(-info.leftOverCents)}</b> more went out
+                    than came in this month. Fun money is paused until money comes in 💪
+                  </p>
+                ) : (
+                  <p>All your money is used up for now. Fun money is paused until money comes in 💪</p>
+                )
+              ) : (
+                <p>You used all your fun money this month. Spend less until pay day 💪</p>
+              )
             ) : (
               <>
-                <p>
-                  <span className="text-ink-faint">This week:</span>{' '}
-                  {formatRands(sts.weekCents)}
-                </p>
-                <p>
-                  <span className="text-ink-faint">Still left for fun:</span>{' '}
-                  {formatRands(Math.max(0, sts.remainingCents))}
-                </p>
-                <p>
-                  <span className="text-ink-faint">Pay day in:</span> {info.daysRemaining} day
-                  {info.daysRemaining === 1 ? '' : 's'}
-                </p>
+                <div className="grid grid-cols-3 gap-2 mt-2 px-1">
+                  <HeroChip value={formatRands(sts.weekCents)} label="to spend this week" />
+                  <HeroChip
+                    value={formatRands(Math.max(0, sts.effectiveRemainingCents))}
+                    label="left till pay day"
+                  />
+                  <HeroChip
+                    value={String(info.daysRemaining)}
+                    label={info.daysRemaining === 1 ? 'day to pay day' : 'days to pay day'}
+                  />
+                </div>
+                {sts.cappedByCash && (
+                  <p className="text-[11px] text-ember mt-2">
+                    Your plan says {formatRands(Math.max(0, sts.remainingCents))}, but only{' '}
+                    {formatRands(Math.max(0, sts.effectiveRemainingCents))} is left — so that's
+                    your number.
+                  </p>
+                )}
               </>
             )}
           </div>
@@ -191,25 +236,42 @@ export function Dashboard() {
         {(Object.keys(BUCKET_RING) as Bucket[]).map((bucket) => {
           const allocated = info.allocated[bucket]
           const used = bucket === 'saving' ? info.savedCents : info.spent[bucket]
-          const pct = allocated > 0 ? used / allocated : 0
+          const pct = allocated > 0 ? used / allocated : used > 0 ? 2 : 0
+          const overCents = used - allocated
+          // The ring fills to 100% max. One bold headline says what matters
+          // ("R 30 000 left" / "R 22 500 over plan"), one faint line gives
+          // the context ("R 0 of R 30 000") — no jargon, no 160%.
+          const headline =
+            bucket === 'saving'
+              ? overCents > 0
+                ? { text: `${formatRands(overCents)} past goal 🎉`, tone: 'text-aqua' }
+                : overCents === 0 && allocated > 0
+                  ? { text: 'Goal reached 🎉', tone: 'text-aqua' }
+                  : { text: `${formatRands(-overCents)} to go`, tone: 'text-ink' }
+              : overCents > 0
+                ? { text: `${formatRands(overCents)} over plan`, tone: 'text-coral' }
+                : { text: `${formatRands(-overCents)} left`, tone: 'text-ink' }
           return (
-            <Card key={bucket} className="flex flex-col items-center py-3 px-1">
+            <Card key={bucket} className="flex flex-col items-center py-3.5 px-1 text-center">
               <ProgressRing
                 pct={pct}
-                size={76}
-                stroke={9}
+                size={72}
+                stroke={8}
                 colors={BUCKET_RING[bucket].colors}
                 overColor={bucket === 'saving' ? undefined : '#FF5C7A'}
               >
                 <span className="font-display font-extrabold text-sm">
-                  {Math.round(pct * 100)}%
+                  {Math.min(100, Math.round(pct * 100))}%
                 </span>
               </ProgressRing>
-              <p className="font-display font-extrabold text-xs mt-2">{BUCKET_RING[bucket].label}</p>
-              <p className="text-[10px] text-ink-faint font-bold text-center leading-tight">
-                {BUCKET_RING[bucket].spentLabel} {formatRands(used)}
-                <br />
-                {BUCKET_RING[bucket].planLabel} {formatRands(allocated)}
+              <p className="font-display font-extrabold text-xs mt-2">
+                {BUCKET_RING[bucket].label}
+              </p>
+              <p className={`text-[11px] font-display font-extrabold leading-tight mt-1 ${headline.tone}`}>
+                {headline.text}
+              </p>
+              <p className="text-[10px] text-ink-faint font-bold leading-tight mt-0.5">
+                {formatRands(used)} of {formatRands(allocated)}
               </p>
             </Card>
           )
@@ -239,12 +301,24 @@ export function Dashboard() {
         </div>
       </Card>
 
-      {/* This month */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <MiniStat label="Money in" cents={info.incomeCents} tone="text-lime" />
-        <MiniStat label="Money spent" cents={info.moneyOutCents} tone="text-coral" />
-        <MiniStat label="Put in savings" cents={info.savedCents} tone="text-aqua" />
+      {/* This month: in − spent − saved = left over, always. */}
+      <div className="grid grid-cols-2 gap-3 mb-1.5">
+        <MiniStat label="Money in" cents={info.incomeCents} tone="text-lime" icon="💰" />
+        <MiniStat label="Money spent" cents={info.moneyOutCents} tone="text-coral" icon="💸" />
+        <MiniStat label="Put in savings" cents={info.savedCents} tone="text-aqua" icon="🏦" />
+        <MiniStat
+          label={info.leftOverCents >= 0 ? 'Left over' : 'Overspent'}
+          cents={Math.abs(info.leftOverCents)}
+          tone={info.leftOverCents >= 0 ? 'text-lime' : 'text-coral'}
+          icon={info.leftOverCents >= 0 ? '✨' : '🚨'}
+        />
       </div>
+      <p className="text-center text-[10px] text-ink-faint font-bold mb-4">
+        Money in − spent − savings ={' '}
+        {info.leftOverCents >= 0 ? 'left over' : (
+          <span className="text-coral">{formatRands(-info.leftOverCents)} overspent</span>
+        )}
+      </p>
 
       <div className="grid grid-cols-2 gap-3 mb-4">
         <Link to="/months">
@@ -271,7 +345,12 @@ export function Dashboard() {
         />
       ) : (
         <div className="flex flex-col gap-2">
-          {visibleFeed.map((entry) => (
+          {weekSections.map((section) => (
+            <div key={section.start} className="flex flex-col gap-2">
+              <p className="text-[11px] font-display font-extrabold text-ink-faint uppercase tracking-wider mt-1">
+                {section.label}
+              </p>
+              {section.entries.map((entry) => (
             <button
               key={entry.item.id}
               onClick={() => {
@@ -329,6 +408,8 @@ export function Dashboard() {
                 />
               )}
             </button>
+              ))}
+            </div>
           ))}
           {hasMoreRecent && (
             <Button3D
@@ -378,9 +459,41 @@ export function Dashboard() {
   )
 }
 
-function MiniStat({ label, cents, tone }: { label: string; cents: number; tone: string }) {
+/** "9–15 June" (or "29 June – 5 July" across months) for a Monday week start. */
+function weekRangeLabel(start: string): string {
+  const end = addDays(start, 6)
+  const s = parseISO(start)
+  const e = parseISO(end)
+  if (s.m === e.m) return `${s.d}–${e.d} ${formatDateLong(end).split(' ')[1]}`
+  return `${formatDateLong(start)} – ${formatDateLong(end)}`
+}
+
+/** One small self-explaining number under the hero, e.g. "R 2 692 · to spend this week". */
+function HeroChip({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="rounded-2xl bg-bg-deep/70 border border-edge px-1.5 py-2 flex flex-col items-center gap-0.5">
+      <span className="font-display font-extrabold text-sm text-ink leading-none">{value}</span>
+      <span className="text-[9.5px] text-ink-faint font-bold leading-tight text-center">{label}</span>
+    </div>
+  )
+}
+
+function MiniStat({
+  label,
+  cents,
+  tone,
+  icon,
+}: {
+  label: string
+  cents: number
+  tone: string
+  icon: string
+}) {
   return (
     <Card className="py-3 px-2 text-center">
+      <p className="text-base leading-none mb-1" aria-hidden>
+        {icon}
+      </p>
       <p className={`font-display font-extrabold text-sm ${tone}`}>
         <CountUp value={cents} format={(v) => formatRands(v)} duration={0.7} />
       </p>

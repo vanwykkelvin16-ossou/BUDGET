@@ -5,11 +5,13 @@
 
 import { describe, expect, it } from 'vitest'
 import { buildDemoData } from '../lib/data/seedDemo'
+import { makeDefaultProfile } from '../lib/data/defaults'
 import { buildSnapshot } from '../lib/engine/insights'
 import { cycleFor } from '../lib/engine/cycle'
 import { todaySAST } from '../lib/dates'
 import { computeCycleInfo } from './selectors'
 import type { AppData } from '../lib/data/types'
+import { emptyAppData } from '../lib/data/types'
 
 function auditCycle(data: AppData, today: string) {
   const info = computeCycleInfo(data, today)
@@ -111,5 +113,86 @@ describe('financial integrity', () => {
     const sum = info.allocated.need + info.allocated.want + info.allocated.saving
     expect(sum).toBe(1_000_001)
     expect(info.allocated.need).toBe(500_001) // 50% + 1 remainder cent
+  })
+})
+
+/**
+ * Fun money must never promise cash that doesn't exist: the hero number is
+ * capped by income − spent − saved, not just by the Wants plan.
+ */
+describe('money coherence (fun money vs real cash)', () => {
+  const TODAY = '2026-07-12' // cycle 2026-06-25 → 2026-07-25 (pay date 25)
+
+  function base(): AppData {
+    const data = emptyAppData()
+    data.profile = makeDefaultProfile({
+      displayName: 'T',
+      salaryCents: 5_500_000,
+      payDate: 25,
+      nowISO: '2026-03-25T00:00:00.000Z',
+    })
+    data.categories = [
+      { id: 'cat-rent', name: 'Rent', icon: '🏠', color: '#fff', bucket: 'need', isFunFund: false, isCustom: false, sortOrder: 0 },
+      { id: 'cat-eating-out', name: 'Eating Out', icon: '🍔', color: '#fff', bucket: 'want', isFunFund: false, isCustom: false, sortOrder: 1 },
+    ]
+    data.goals = [
+      { id: 'g1', name: 'Fund', icon: '🎯', color: '#fff', targetCents: 10_000_000, savedCents: 0, autoAllocateCents: 0, celebratedMilestones: [], achievedAt: null, createdAt: '' },
+    ]
+    data.incomes = [
+      { id: 'i1', amountCents: 5_500_000, source: 'salary', date: '2026-06-25', createdAt: '' },
+    ]
+    return data
+  }
+
+  it('leftOverCents is always income − spent − saved', () => {
+    const data = base()
+    data.transactions = [
+      { id: 't1', amountCents: 3_000_000, categoryId: 'cat-rent', date: '2026-06-26', createdAt: '' },
+      { id: 't2', amountCents: 200_000, categoryId: 'cat-eating-out', date: '2026-07-01', createdAt: '' },
+    ]
+    data.contributions = [
+      { id: 'c1', goalId: 'g1', amountCents: 1_000_000, date: '2026-07-02', source: 'manual', createdAt: '' },
+    ]
+    const info = computeCycleInfo(data, TODAY)!
+    expect(info.moneyOutCents).toBe(3_200_000)
+    expect(info.savedCents).toBe(1_000_000)
+    expect(info.leftOverCents).toBe(info.incomeCents - info.moneyOutCents - info.savedCents)
+    expect(info.leftOverCents).toBe(1_300_000)
+  })
+
+  it('fun money is zero when spending + savings exceed income', () => {
+    // In R55 000, out R52 000, saved R30 000 → R27 000 more out than in,
+    // even though the Wants plan alone still has room.
+    const data = base()
+    data.transactions = [
+      { id: 't1', amountCents: 5_000_000, categoryId: 'cat-rent', date: '2026-06-26', createdAt: '' },
+      { id: 't2', amountCents: 200_000, categoryId: 'cat-eating-out', date: '2026-07-01', createdAt: '' },
+    ]
+    data.contributions = [
+      { id: 'c1', goalId: 'g1', amountCents: 3_000_000, date: '2026-07-02', source: 'manual', createdAt: '' },
+    ]
+    const info = computeCycleInfo(data, TODAY)!
+    expect(info.leftOverCents).toBe(-2_700_000)
+    expect(info.sts.cappedByCash).toBe(true)
+    expect(info.sts.dailyCents).toBe(0)
+    expect(info.sts.weekCents).toBe(0)
+    expect(info.sts.status).toBe('over')
+    // The Fun Fund can't claim money that doesn't exist either.
+    expect(info.funFund.remainingCents).toBe(0)
+  })
+
+  it('fun money follows the smaller of plan and real cash', () => {
+    // Huge Needs spend leaves only R500 real money, though the Wants plan
+    // (untouched) would allow far more.
+    const data = base()
+    data.transactions = [
+      { id: 't1', amountCents: 5_450_000, categoryId: 'cat-rent', date: '2026-06-26', createdAt: '' },
+    ]
+    const info = computeCycleInfo(data, TODAY)!
+    expect(info.leftOverCents).toBe(50_000)
+    expect(info.sts.cappedByCash).toBe(true)
+    expect(info.sts.effectiveRemainingCents).toBe(50_000)
+    expect(info.sts.dailyCents).toBe(Math.floor(50_000 / info.daysRemaining))
+    expect(info.sts.remainingCents).toBe(info.allocated.want) // plan untouched
   })
 })

@@ -86,6 +86,78 @@ describe('computeSafeToSpend', () => {
   })
 })
 
+describe('computeSafeToSpend — cash cap', () => {
+  it('leaves the plan alone when enough real money is left', () => {
+    const r = computeSafeToSpend({
+      wantsAllocatedCents: 900000,
+      wantsSpentCents: 300000,
+      wantsSpentTodayCents: 0,
+      daysRemaining: 20,
+      actualAvailableCents: 2_000_000, // plenty in hand
+    })
+    expect(r.cappedByCash).toBe(false)
+    expect(r.effectiveRemainingCents).toBe(600000)
+    expect(r.dailyCents).toBe(30000)
+    expect(r.status).toBe('winning')
+  })
+
+  it('caps daily/week numbers by the real money left', () => {
+    const r = computeSafeToSpend({
+      wantsAllocatedCents: 900000, // plan says R6 000 still available…
+      wantsSpentCents: 300000,
+      wantsSpentTodayCents: 0,
+      daysRemaining: 20,
+      actualAvailableCents: 200000, // …but only R2 000 really exists
+    })
+    expect(r.cappedByCash).toBe(true)
+    expect(r.remainingCents).toBe(600000) // plan number unchanged
+    expect(r.effectiveRemainingCents).toBe(200000)
+    expect(r.dailyCents).toBe(10000) // R100/day, not R300/day
+    expect(r.weekCents).toBe(70000)
+  })
+
+  it('zeroes fun money when more went out than came in (screenshot case)', () => {
+    // Money in R55 000, spent R52 000, saved R30 000 → R27 000 short,
+    // yet the Wants plan alone still "allows" R12 650 over 13 days.
+    const r = computeSafeToSpend({
+      wantsAllocatedCents: 1_265_000,
+      wantsSpentCents: 0,
+      wantsSpentTodayCents: 0,
+      daysRemaining: 13,
+      actualAvailableCents: -2_700_000,
+    })
+    expect(r.cappedByCash).toBe(true)
+    expect(r.dailyCents).toBe(0)
+    expect(r.weekCents).toBe(0)
+    expect(r.effectiveRemainingCents).toBe(-2_700_000)
+    expect(r.status).toBe('over')
+  })
+
+  it('exactly zero cash left means zero fun money, flagged as capped', () => {
+    const r = computeSafeToSpend({
+      wantsAllocatedCents: 500000,
+      wantsSpentCents: 100000,
+      wantsSpentTodayCents: 0,
+      daysRemaining: 10,
+      actualAvailableCents: 0,
+    })
+    expect(r.cappedByCash).toBe(true)
+    expect(r.dailyCents).toBe(0)
+    expect(r.status).toBe('over')
+  })
+
+  it('omitting the cap keeps pure plan maths (back-compat)', () => {
+    const withCap = computeSafeToSpend({
+      wantsAllocatedCents: 900000,
+      wantsSpentCents: 300000,
+      wantsSpentTodayCents: 0,
+      daysRemaining: 20,
+    })
+    expect(withCap.cappedByCash).toBe(false)
+    expect(withCap.effectiveRemainingCents).toBe(withCap.remainingCents)
+  })
+})
+
 describe('wasUnderStsDay', () => {
   it('true when the day spend stayed within the day-start allowance', () => {
     expect(

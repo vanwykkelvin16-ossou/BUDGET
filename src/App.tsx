@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAppStore } from './state/appStore'
 import { STORAGE_KEY } from './lib/data/store'
+import { runNotificationSweep } from './lib/notifications'
 import { TabBar } from './components/layout/TabBar'
 import { JuiceHost } from './components/juice/JuiceHost'
 import { Randy } from './components/ui/Randy'
@@ -23,7 +24,8 @@ import { Settings } from './screens/Settings'
 export function App() {
   const loaded = useAppStore((s) => s.loaded)
   const needsAuth = useAppStore((s) => s.needsAuth)
-  const profile = useAppStore((s) => s.data.profile)
+  const data = useAppStore((s) => s.data)
+  const profile = data.profile
   const init = useAppStore((s) => s.init)
   const location = useLocation()
 
@@ -44,7 +46,11 @@ export function App() {
     const onStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY) void useAppStore.getState().syncExternal()
     }
-    const onWake = () => void useAppStore.getState().rolloverIfNewDay()
+    const onWake = () =>
+      void useAppStore
+        .getState()
+        .rolloverIfNewDay()
+        .then(() => runNotificationSweep(useAppStore.getState().data))
     const tick = window.setInterval(onWake, 30_000)
     window.addEventListener('storage', onStorage)
     window.addEventListener('focus', onWake)
@@ -56,6 +62,12 @@ export function App() {
       document.removeEventListener('visibilitychange', onWake)
     }
   }, [])
+
+  // Nudge engine: an idempotent sweep on every ledger change means the
+  // overspend warning lands the moment the tipping expense is logged.
+  useEffect(() => {
+    if (loaded && data.profile) void runNotificationSweep(data)
+  }, [loaded, data])
 
   // Apply theme + dark mode to <html> whenever the profile changes.
   useEffect(() => {
