@@ -154,38 +154,38 @@ export function Dashboard() {
           <div className={`font-display font-extrabold text-[56px] leading-tight ${heroClass}`}>
             <CountUp value={sts.dailyCents} format={(v) => formatZAR(v)} />
           </div>
-          <div className="text-sm text-ink-soft font-semibold flex flex-col gap-1 mt-1">
+          <div className="text-sm text-ink-soft font-semibold mt-1">
             {sts.status === 'over' ? (
               sts.cappedByCash ? (
-                <p>
-                  More money went out than came in this month
-                  {info.leftOverCents < 0 && (
-                    <> — <b className="text-coral">{formatRands(-info.leftOverCents)}</b> more</>
-                  )}
-                  . Fun money is paused until new money comes in 💪
-                </p>
+                info.leftOverCents < 0 ? (
+                  <p>
+                    <b className="text-coral">{formatRands(-info.leftOverCents)}</b> more went out
+                    than came in this month. Fun money is paused until money comes in 💪
+                  </p>
+                ) : (
+                  <p>All your money is used up for now. Fun money is paused until money comes in 💪</p>
+                )
               ) : (
                 <p>You used all your fun money this month. Spend less until pay day 💪</p>
               )
             ) : (
               <>
-                <p>
-                  <span className="text-ink-faint">This week:</span>{' '}
-                  {formatRands(sts.weekCents)}
-                </p>
-                <p>
-                  <span className="text-ink-faint">Still left for fun:</span>{' '}
-                  {formatRands(Math.max(0, sts.effectiveRemainingCents))}
-                </p>
-                <p>
-                  <span className="text-ink-faint">Pay day in:</span> {info.daysRemaining} day
-                  {info.daysRemaining === 1 ? '' : 's'}
-                </p>
+                <div className="grid grid-cols-3 gap-2 mt-2 px-1">
+                  <HeroChip value={formatRands(sts.weekCents)} label="to spend this week" />
+                  <HeroChip
+                    value={formatRands(Math.max(0, sts.effectiveRemainingCents))}
+                    label="left till pay day"
+                  />
+                  <HeroChip
+                    value={String(info.daysRemaining)}
+                    label={info.daysRemaining === 1 ? 'day to pay day' : 'days to pay day'}
+                  />
+                </div>
                 {sts.cappedByCash && (
-                  <p className="text-[11px] text-ember">
-                    Your plan allows {formatRands(Math.max(0, sts.remainingCents))}, but only{' '}
-                    {formatRands(Math.max(0, sts.effectiveRemainingCents))} is really left after
-                    spending and saving — so that's your number.
+                  <p className="text-[11px] text-ember mt-2">
+                    Your plan says {formatRands(Math.max(0, sts.remainingCents))}, but only{' '}
+                    {formatRands(Math.max(0, sts.effectiveRemainingCents))} is left — so that's
+                    your number.
                   </p>
                 )}
               </>
@@ -274,13 +274,14 @@ export function Dashboard() {
 
       {/* This month: in − spent − saved = left over, always. */}
       <div className="grid grid-cols-2 gap-3 mb-1.5">
-        <MiniStat label="Money in" cents={info.incomeCents} tone="text-lime" />
-        <MiniStat label="Money spent" cents={info.moneyOutCents} tone="text-coral" />
-        <MiniStat label="Put in savings" cents={info.savedCents} tone="text-aqua" />
+        <MiniStat label="Money in" cents={info.incomeCents} tone="text-lime" icon="💰" />
+        <MiniStat label="Money spent" cents={info.moneyOutCents} tone="text-coral" icon="💸" />
+        <MiniStat label="Put in savings" cents={info.savedCents} tone="text-aqua" icon="🏦" />
         <MiniStat
           label={info.leftOverCents >= 0 ? 'Left over' : 'Overspent'}
           cents={Math.abs(info.leftOverCents)}
           tone={info.leftOverCents >= 0 ? 'text-lime' : 'text-coral'}
+          icon={info.leftOverCents >= 0 ? '✨' : '🚨'}
         />
       </div>
       <p className="text-center text-[10px] text-ink-faint font-bold mb-4">
@@ -422,9 +423,32 @@ export function Dashboard() {
   )
 }
 
-function MiniStat({ label, cents, tone }: { label: string; cents: number; tone: string }) {
+/** One small self-explaining number under the hero, e.g. "R 2 692 · to spend this week". */
+function HeroChip({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="rounded-2xl bg-bg-deep/70 border border-edge px-1.5 py-2 flex flex-col items-center gap-0.5">
+      <span className="font-display font-extrabold text-sm text-ink leading-none">{value}</span>
+      <span className="text-[9.5px] text-ink-faint font-bold leading-tight text-center">{label}</span>
+    </div>
+  )
+}
+
+function MiniStat({
+  label,
+  cents,
+  tone,
+  icon,
+}: {
+  label: string
+  cents: number
+  tone: string
+  icon: string
+}) {
   return (
     <Card className="py-3 px-2 text-center">
+      <p className="text-base leading-none mb-1" aria-hidden>
+        {icon}
+      </p>
       <p className={`font-display font-extrabold text-sm ${tone}`}>
         <CountUp value={cents} format={(v) => formatRands(v)} duration={0.7} />
       </p>
