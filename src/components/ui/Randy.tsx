@@ -28,7 +28,7 @@ export function Randy({ mood = 'happy', size = 120, className = '' }: Props) {
       width={size}
       height={size}
       className={[
-        'object-contain select-none pointer-events-none',
+        'block object-contain select-none pointer-events-none',
         MOOD_STYLES[mood],
         className,
       ]

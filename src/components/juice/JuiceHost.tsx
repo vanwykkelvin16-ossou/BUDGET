@@ -239,7 +239,7 @@ export function JuiceHost() {
                     transition={{ type: 'spring', stiffness: 200, damping: 12, delay: 0.15 }}
                     className="w-24 h-24 rounded-[28px] bg-gradient-to-b from-violet-soft to-violet
                                border-b-8 border-violet-deep shadow-glow-violet
-                               flex items-center justify-center text-5xl"
+                               flex items-center justify-center"
                   >
                     <RankCrest crest={overlay.rank.crest} size={56} />
                   </motion.div>
@@ -263,7 +263,9 @@ export function JuiceHost() {
                     initial={{ scale: 1.6, rotate: 8 }}
                     animate={{ scale: 1, rotate: 0 }}
                     transition={{ type: 'spring', stiffness: 160, damping: 10 }}
-                    className="text-7xl"
+                    className="w-24 h-24 rounded-[28px] bg-gradient-to-b from-sun to-gold
+                               border-b-8 border-[#b45309] shadow-glow-gold
+                               flex items-center justify-center text-[52px] leading-none select-none"
                   >
                     🐲
                   </motion.div>
@@ -279,7 +281,13 @@ export function JuiceHost() {
 
               {overlay.kind === 'milestone' && (
                 <>
-                  <div className="text-6xl">{overlay.goal.icon}</div>
+                  <div
+                    className="w-24 h-24 rounded-[28px] bg-gradient-to-b from-[#67e8f9] to-aqua
+                               border-b-8 border-aqua-deep shadow-glow-aqua
+                               flex items-center justify-center text-[52px] leading-none select-none"
+                  >
+                    {overlay.goal.icon}
+                  </div>
                   <p className="font-display font-extrabold text-2xl text-gradient-win">
                     {overlay.goal.name} — done!
                   </p>
