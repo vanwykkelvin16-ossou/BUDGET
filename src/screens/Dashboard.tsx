@@ -156,7 +156,17 @@ export function Dashboard() {
           </div>
           <div className="text-sm text-ink-soft font-semibold flex flex-col gap-1 mt-1">
             {sts.status === 'over' ? (
-              <p>You used all your fun money this month. Spend less until pay day 💪</p>
+              sts.cappedByCash ? (
+                <p>
+                  More money went out than came in this month
+                  {info.leftOverCents < 0 && (
+                    <> — <b className="text-coral">{formatRands(-info.leftOverCents)}</b> more</>
+                  )}
+                  . Fun money is paused until new money comes in 💪
+                </p>
+              ) : (
+                <p>You used all your fun money this month. Spend less until pay day 💪</p>
+              )
             ) : (
               <>
                 <p>
@@ -165,12 +175,19 @@ export function Dashboard() {
                 </p>
                 <p>
                   <span className="text-ink-faint">Still left for fun:</span>{' '}
-                  {formatRands(Math.max(0, sts.remainingCents))}
+                  {formatRands(Math.max(0, sts.effectiveRemainingCents))}
                 </p>
                 <p>
                   <span className="text-ink-faint">Pay day in:</span> {info.daysRemaining} day
                   {info.daysRemaining === 1 ? '' : 's'}
                 </p>
+                {sts.cappedByCash && (
+                  <p className="text-[11px] text-ember">
+                    Your plan allows {formatRands(Math.max(0, sts.remainingCents))}, but only{' '}
+                    {formatRands(Math.max(0, sts.effectiveRemainingCents))} is really left after
+                    spending and saving — so that's your number.
+                  </p>
+                )}
               </>
             )}
           </div>
@@ -191,7 +208,20 @@ export function Dashboard() {
         {(Object.keys(BUCKET_RING) as Bucket[]).map((bucket) => {
           const allocated = info.allocated[bucket]
           const used = bucket === 'saving' ? info.savedCents : info.spent[bucket]
-          const pct = allocated > 0 ? used / allocated : 0
+          const pct = allocated > 0 ? used / allocated : used > 0 ? 2 : 0
+          const overCents = used - allocated
+          // The ring fills to 100% max; the line below tells the over/under
+          // story in words instead of a confusing "160%".
+          const line =
+            bucket === 'saving'
+              ? overCents > 0
+                ? { text: `${formatRands(overCents)} past goal 🎉`, tone: 'text-aqua' }
+                : overCents === 0 && allocated > 0
+                  ? { text: 'Goal reached 🎉', tone: 'text-aqua' }
+                  : { text: `${formatRands(-overCents)} to go`, tone: 'text-ink-faint' }
+              : overCents > 0
+                ? { text: `${formatRands(overCents)} over plan`, tone: 'text-coral' }
+                : { text: `${formatRands(-overCents)} left`, tone: 'text-ink-faint' }
           return (
             <Card key={bucket} className="flex flex-col items-center py-3 px-1">
               <ProgressRing
@@ -202,7 +232,7 @@ export function Dashboard() {
                 overColor={bucket === 'saving' ? undefined : '#FF5C7A'}
               >
                 <span className="font-display font-extrabold text-sm">
-                  {Math.round(pct * 100)}%
+                  {Math.min(100, Math.round(pct * 100))}%
                 </span>
               </ProgressRing>
               <p className="font-display font-extrabold text-xs mt-2">{BUCKET_RING[bucket].label}</p>
@@ -210,6 +240,9 @@ export function Dashboard() {
                 {BUCKET_RING[bucket].spentLabel} {formatRands(used)}
                 <br />
                 {BUCKET_RING[bucket].planLabel} {formatRands(allocated)}
+              </p>
+              <p className={`text-[10px] font-bold text-center leading-tight mt-0.5 ${line.tone}`}>
+                {line.text}
               </p>
             </Card>
           )
@@ -239,12 +272,23 @@ export function Dashboard() {
         </div>
       </Card>
 
-      {/* This month */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
+      {/* This month: in − spent − saved = left over, always. */}
+      <div className="grid grid-cols-2 gap-3 mb-1.5">
         <MiniStat label="Money in" cents={info.incomeCents} tone="text-lime" />
         <MiniStat label="Money spent" cents={info.moneyOutCents} tone="text-coral" />
         <MiniStat label="Put in savings" cents={info.savedCents} tone="text-aqua" />
+        <MiniStat
+          label={info.leftOverCents >= 0 ? 'Left over' : 'Overspent'}
+          cents={Math.abs(info.leftOverCents)}
+          tone={info.leftOverCents >= 0 ? 'text-lime' : 'text-coral'}
+        />
       </div>
+      <p className="text-center text-[10px] text-ink-faint font-bold mb-4">
+        Money in − spent − savings ={' '}
+        {info.leftOverCents >= 0 ? 'left over' : (
+          <span className="text-coral">{formatRands(-info.leftOverCents)} overspent</span>
+        )}
+      </p>
 
       <div className="grid grid-cols-2 gap-3 mb-4">
         <Link to="/months">

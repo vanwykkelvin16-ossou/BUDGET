@@ -33,6 +33,12 @@ export interface CycleInfo {
   /** Contributions (manual + auto + sweep) made during this cycle. */
   savedCents: number
   moneyOutCents: number
+  /**
+   * Real money left this cycle: income − all spending − savings put away.
+   * Negative means more went out than came in. This is the number that
+   * caps the fun-money hero.
+   */
+  leftOverCents: number
   sts: StsResult
   funFund: { budgetCents: number; spentCents: number; remainingCents: number }
 }
@@ -56,16 +62,19 @@ export function computeCycleInfo(data: AppData, today: string): CycleInfo | null
     .reduce((sum, t) => sum + t.amountCents, 0)
 
   const days = cycleDaysRemaining(today, cycle)
+  const moneyOutCents = spent.need + spent.want
+  // Money in − money spent − money saved: what is really still in hand.
+  const leftOverCents = incomeCents - moneyOutCents - savedCents
   const sts = computeSafeToSpend({
     wantsAllocatedCents: allocated.want,
     wantsSpentCents: spent.want,
     wantsSpentTodayCents: wantsToday,
     daysRemaining: days,
+    actualAvailableCents: leftOverCents,
   })
 
   const funBudget = profile.funFundCents
   const funSpent = funFundSpent(data.transactions, data.categories, cycle)
-  const moneyOutCents = spent.need + spent.want
 
   return {
     cycle,
@@ -76,11 +85,13 @@ export function computeCycleInfo(data: AppData, today: string): CycleInfo | null
     spent,
     savedCents,
     moneyOutCents,
+    leftOverCents,
     sts,
     funFund: {
       budgetCents: funBudget,
       spentCents: funSpent,
-      remainingCents: Math.max(0, funBudget - funSpent),
+      // Like the hero, "left" can never exceed the money actually in hand.
+      remainingCents: Math.max(0, Math.min(funBudget - funSpent, leftOverCents)),
     },
   }
 }
