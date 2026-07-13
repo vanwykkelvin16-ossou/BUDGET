@@ -488,13 +488,6 @@ export function Dashboard() {
             </div>
           </div>
 
-          {sts.cappedByCash && sts.status !== 'over' && (
-            <div className="rounded-xl bg-ember/10 px-3.5 py-2.5 text-[11px] font-bold text-ember leading-relaxed">
-              💡 Your plan allows {formatRands(Math.max(0, sts.remainingCents))} for fun, but your
-              pocket has {formatRands(Math.max(0, sts.effectiveRemainingCents))} right now — so we
-              count what's real 👍
-            </div>
-          )}
           {sts.status === 'over' && (
             <div className="rounded-xl bg-coral/10 px-3.5 py-2.5 text-[11px] font-bold text-coral leading-relaxed">
               {sts.cappedByCash
