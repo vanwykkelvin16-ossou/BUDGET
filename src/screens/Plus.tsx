@@ -242,16 +242,25 @@ export function Plus() {
         </Card>
       </div>
 
-      <Button3D full size="lg" variant="gold" disabled={busy} onClick={() => void pay()}>
-        {status === 'active'
-          ? `Add another year — ${formatZAR(PLUS_PRICE_CENTS, { showCents: false })}`
-          : `Pay ${formatZAR(priceCents, { showCents: false })} for a year`}
-      </Button3D>
-      <p className="text-center text-[10px] text-ink-faint font-bold mt-3 pb-6">
-        {config
-          ? `Secure checkout by PayFast${config.sandbox ? ' (sandbox)' : ''}. No auto-renewal — you choose when to pay again.`
-          : 'Test mode: payments aren’t connected yet, so this activates a trial year on this device.'}
-      </p>
+      {status === 'active' ? (
+        // One year at a time — no stacking. Renewal appears when it lapses.
+        <p className="text-center text-sm text-ink-soft font-semibold py-2">
+          🎉 You're all set for the year. Renewal opens here when your year is up.
+        </p>
+      ) : (
+        <>
+          <Button3D full size="lg" variant="gold" disabled={busy} onClick={() => void pay()}>
+            {status === 'expired'
+              ? `Renew — ${formatZAR(priceCents, { showCents: false })} for a year`
+              : `Pay ${formatZAR(priceCents, { showCents: false })} for a year`}
+          </Button3D>
+          <p className="text-center text-[10px] text-ink-faint font-bold mt-3 pb-6">
+            {config
+              ? `Secure checkout by PayFast${config.sandbox ? ' (sandbox)' : ''}. No auto-renewal — you choose when to pay again.`
+              : 'Test mode: payments aren’t connected yet, so this activates a trial year on this device.'}
+          </p>
+        </>
+      )}
 
       {/* Give R50, get R50 off — the gift ticket */}
       <div
