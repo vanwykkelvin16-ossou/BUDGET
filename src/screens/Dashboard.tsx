@@ -53,6 +53,7 @@ export function Dashboard() {
   const sweepToGoal = useAppStore((s) => s.sweepToGoal)
   const [sweepOpen, setSweepOpen] = useState(false)
   const [editing, setEditing] = useState<LedgerEntry | null>(null)
+  const [mathOpen, setMathOpen] = useState(false)
   const [recentVisible, setRecentVisible] = useState(RECENT_FEED_INITIAL)
 
   const today = todaySAST()
@@ -209,24 +210,21 @@ export function Dashboard() {
                   />
                 </div>
                 {sts.cappedByCash && (
-                  <div className="mt-3 mx-1 flex items-start gap-2 text-left rounded-xl bg-ember/10 px-3 py-2.5">
-                    <span className="text-sm leading-none mt-0.5" aria-hidden>
-                      💡
-                    </span>
-                    <p className="text-[11px] font-bold text-ember leading-relaxed">
-                      Your plan allows{' '}
-                      <b className="text-ink">{formatRands(Math.max(0, sts.remainingCents))}</b>{' '}
-                      for fun, but your pocket has{' '}
-                      <b className="text-ink">
-                        {formatRands(Math.max(0, sts.effectiveRemainingCents))}
-                      </b>{' '}
-                      right now — so we count what's real{'\u00A0'}👍
-                    </p>
-                  </div>
+                  <p className="text-[11px] font-bold text-ember mt-2.5">
+                    💡 Capped by real pocket money — not the plan
+                  </p>
                 )}
               </>
             )}
           </div>
+          <button
+            onClick={() => setMathOpen(true)}
+            className="mt-3 mx-auto block px-4 py-1.5 rounded-full text-[11px] font-display
+                       font-extrabold text-ink-faint border border-edge
+                       active:scale-95 transition-transform"
+          >
+            See how it's worked out ›
+          </button>
           {canMarkNoSpend && (
             <button
               onClick={() => void markNoSpendDay()}
@@ -432,6 +430,55 @@ export function Dashboard() {
         </div>
       )}
 
+      {/* The maths behind the hero number, spelled out step by step. */}
+      <Sheet open={mathOpen} onClose={() => setMathOpen(false)} title="How today's number is made">
+        <div className="flex flex-col pb-2">
+          <MathRow label="Your fun plan this month" value={formatRands(info.allocated.want)} />
+          <MathRow label="Fun spending so far" value={`− ${formatRands(info.spent.want)}`} />
+          <MathRow label="Plan still allows" value={formatRands(sts.remainingCents)} strong divider />
+          <MathRow label="Money in" value={formatRands(info.incomeCents)} />
+          <MathRow label="All spending" value={`− ${formatRands(info.moneyOutCents)}`} />
+          <MathRow label="Put in savings" value={`− ${formatRands(info.savedCents)}`} />
+          <MathRow
+            label="Really in your pocket"
+            value={formatRands(info.leftOverCents)}
+            tone={info.leftOverCents < 0 ? 'text-coral' : undefined}
+            strong
+            divider
+          />
+          <MathRow
+            label={`We use the smaller one (${sts.cappedByCash ? 'your pocket' : 'the plan'})`}
+            value={formatRands(Math.max(0, sts.effectiveRemainingCents))}
+            strong
+          />
+          <MathRow label="Days to pay day" value={`÷ ${info.daysRemaining}`} />
+          <div className="flex items-center justify-between py-2.5 mt-1 rounded-2xl bg-bg-deep px-3">
+            <span className="font-display font-extrabold text-sm">Fun money for today</span>
+            <span className="font-display font-extrabold text-lg text-gradient-win">
+              {formatZAR(sts.dailyCents)}
+            </span>
+          </div>
+          <p className="text-xs text-ink-soft font-semibold mt-3">
+            This week you can spend <b>{formatRands(sts.weekCents)}</b> — today's number times the
+            days left (up to 7).
+          </p>
+          {sts.cappedByCash && sts.status !== 'over' && (
+            <p className="text-xs font-bold text-ember mt-2 leading-relaxed">
+              💡 Your plan allows {formatRands(Math.max(0, sts.remainingCents))} for fun, but your
+              pocket has {formatRands(Math.max(0, sts.effectiveRemainingCents))} right now — so we
+              count what's real 👍
+            </p>
+          )}
+          {sts.status === 'over' && (
+            <p className="text-xs font-bold text-coral mt-2 leading-relaxed">
+              {sts.cappedByCash
+                ? 'More went out than came in — fun money is paused until money comes in 💪'
+                : 'The fun plan is used up — spend less until pay day 💪'}
+            </p>
+          )}
+        </div>
+      </Sheet>
+
       <EditEntrySheet entry={editing} onClose={() => setEditing(null)} />
 
       {/* Sweep sheet */}
@@ -474,6 +521,38 @@ function weekRangeLabel(start: string): string {
   const e = parseISO(end)
   if (s.m === e.m) return `${s.d}–${e.d} ${formatDateLong(end).split(' ')[1]}`
   return `${formatDateLong(start)} – ${formatDateLong(end)}`
+}
+
+/** One line of the fun-money maths breakdown. */
+function MathRow({
+  label,
+  value,
+  strong = false,
+  divider = false,
+  tone,
+}: {
+  label: string
+  value: string
+  strong?: boolean
+  divider?: boolean
+  tone?: string
+}) {
+  return (
+    <div
+      className={`flex items-center justify-between py-1.5 ${
+        divider ? 'border-b border-edge pb-2.5 mb-2' : ''
+      }`}
+    >
+      <span className={`text-xs ${strong ? 'font-extrabold text-ink' : 'font-bold text-ink-faint'}`}>
+        {label}
+      </span>
+      <span
+        className={`font-display font-extrabold text-sm ${tone ?? (strong ? 'text-ink' : 'text-ink-soft')}`}
+      >
+        {value}
+      </span>
+    </div>
+  )
 }
 
 /** One small self-explaining number under the hero, e.g. "R 2 692 · to spend this week". */
