@@ -366,16 +366,11 @@ export function Dashboard() {
               {section.entries.map((entry) => (
             <button
               key={entry.item.id}
-              onClick={() => {
-                if (entry.type === 'contribution') return
-                setEditing(entry)
-              }}
-              className={`text-left active:scale-[0.99] transition-transform ${
-                entry.type === 'contribution' ? 'cursor-default' : ''
-              }`}
+              onClick={() => setEditing(entry)}
+              className="text-left active:scale-[0.99] transition-transform"
               aria-label={
                 entry.type === 'contribution'
-                  ? `Savings to ${goalById.get(entry.item.goalId)?.name ?? 'goal'}`
+                  ? `Edit savings to ${goalById.get(entry.item.goalId)?.name ?? 'goal'}`
                   : `Edit ${entry.type}`
               }
             >
