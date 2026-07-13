@@ -13,14 +13,13 @@ import {
   daysLeft,
   loadMembership,
   membershipStatus,
-  payfastCheckoutUrl,
   payfastConfig,
   PLUS_DAYS,
   PLUS_PRICE_CENTS,
   saveMembership,
-  yearFrom,
   type Membership,
 } from '../lib/membership'
+import { payForYear } from '../lib/plusCheckout'
 import {
   adoptServerReferralCode,
   hasShared,
@@ -130,32 +129,15 @@ export function Plus() {
 
   async function pay() {
     if (busy) return
-    if (config) {
-      // Real checkout — PayFast confirms server-side via the ITN edge
-      // function, which writes the memberships row.
-      const supabase = getSupabaseClient()
-      const userId = supabase ? (await supabase.auth.getUser()).data.user?.id : undefined
-      window.location.href = payfastCheckoutUrl({
-        config,
-        origin: window.location.origin,
-        email: profile?.email || undefined,
-        name: profile?.displayName || undefined,
-        userId,
-        amountCents: priceCents,
-        referralDiscount: reward && isFirstPayment,
-      })
-      return
-    }
-    // Test mode — no merchant keys configured yet.
     setBusy(true)
-    const activated: Membership = {
-      paidUntil: yearFrom(membership, today),
-      paymentRef: 'test-mode',
-      amountCents: priceCents,
-      activatedAt: new Date().toISOString(),
-    }
-    saveMembership(activated)
-    setMembership(activated)
+    const result = await payForYear({
+      priceCents,
+      referralDiscount: reward && isFirstPayment,
+      current: membership,
+      email: profile?.email || undefined,
+      name: profile?.displayName || undefined,
+    })
+    if (result !== 'redirected') setMembership(result)
     setBusy(false)
   }
 
@@ -260,43 +242,73 @@ export function Plus() {
         </Card>
       </div>
 
-      {/* Give R50, get R50 off */}
-      <Card className="mb-4">
-        <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-ink-faint mb-2">
-          Share &amp; save R50
-        </p>
-        <p className="text-sm text-ink-soft font-semibold leading-snug">
-          Share PennyPlay with a friend. When they <b className="text-ink">sign up</b>, R50 comes
-          off your first year — {formatZAR(PLUS_PRICE_CENTS, { showCents: false })} →{' '}
-          <b className="text-lime">R 150</b>.
-        </p>
-        <div className="flex items-center gap-2.5 mt-3">
-          <span
-            className="flex-1 text-center px-3 py-2.5 rounded-2xl bg-bg-deep border border-edge
-                       font-display font-extrabold tracking-[0.25em] text-ink"
+      <Button3D full size="lg" variant="gold" disabled={busy} onClick={() => void pay()}>
+        {status === 'active'
+          ? `Add another year — ${formatZAR(PLUS_PRICE_CENTS, { showCents: false })}`
+          : `Pay ${formatZAR(priceCents, { showCents: false })} for a year`}
+      </Button3D>
+      <p className="text-center text-[10px] text-ink-faint font-bold mt-3 pb-6">
+        {config
+          ? `Secure checkout by PayFast${config.sandbox ? ' (sandbox)' : ''}. No auto-renewal — you choose when to pay again.`
+          : 'Test mode: payments aren’t connected yet, so this activates a trial year on this device.'}
+      </p>
+
+      {/* Give R50, get R50 off — the gift ticket */}
+      <div
+        className="rounded-[24px] p-[1.5px] mt-4 mb-4"
+        style={{ background: 'linear-gradient(120deg,#22d3ee,#7c3aed)' }}
+      >
+        <Card className="!border-transparent">
+          <div className="flex items-center gap-3">
+            <span
+              className="w-10 h-10 shrink-0 rounded-2xl bg-aqua/15 border border-aqua/40
+                         flex items-center justify-center text-lg"
+              aria-hidden
+            >
+              🎁
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-ink-faint">
+                Share &amp; save R50
+              </p>
+              <p className="font-display font-extrabold text-sm leading-tight">
+                Give PennyPlay, get R50 off your first year
+              </p>
+            </div>
+          </div>
+          <p className="text-xs text-ink-soft font-semibold leading-snug mt-2.5">
+            Send your link to a friend. The moment they <b className="text-ink">sign up</b>, your
+            first year drops from {formatZAR(PLUS_PRICE_CENTS, { showCents: false })} to{' '}
+            <b className="text-lime">R 150</b>.
+          </p>
+          <div
+            className="mt-3 px-3 py-2.5 rounded-2xl border-2 border-dashed border-aqua/40 bg-bg-deep
+                       text-center font-display font-extrabold tracking-[0.25em] text-ink"
           >
             {refCode}
-          </span>
-          <Button3D size="sm" variant="aqua" onClick={() => void share()}>
-            Share my link
-          </Button3D>
-        </div>
-        {shareNote && <p className="text-xs text-aqua font-bold mt-2">{shareNote}</p>}
-        <p className="text-[11px] font-bold mt-2.5">
-          {reward ? (
-            <span className="text-lime">✓ A friend signed up — your R50 is unlocked!</span>
-          ) : shared ? (
-            <span className="text-ink-faint">
-              Link shared · your R50 unlocks the moment a friend signs up with it
-            </span>
-          ) : (
-            <span className="text-ink-faint">No sign-up from your link yet</span>
-          )}
-        </p>
-      </Card>
+          </div>
+          <div className="mt-3">
+            <Button3D full variant="aqua" onClick={() => void share()}>
+              Share my link
+            </Button3D>
+          </div>
+          {shareNote && <p className="text-xs text-aqua font-bold mt-2 text-center">{shareNote}</p>}
+          <p className="text-[11px] font-bold mt-2.5 text-center">
+            {reward ? (
+              <span className="text-lime">✓ A friend signed up — your R50 is unlocked!</span>
+            ) : shared ? (
+              <span className="text-ink-faint">
+                Link shared · your R50 unlocks the moment a friend signs up with it
+              </span>
+            ) : (
+              <span className="text-ink-faint">No sign-up from your link yet</span>
+            )}
+          </p>
+        </Card>
+      </div>
 
       {/* What you get */}
-      <Card className="mb-4">
+      <Card className="mb-8">
         <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-ink-faint mb-3">
           Everything, unlocked
         </p>
@@ -316,16 +328,6 @@ export function Plus() {
         </div>
       </Card>
 
-      <Button3D full size="lg" variant="gold" disabled={busy} onClick={() => void pay()}>
-        {status === 'active'
-          ? `Add another year — ${formatZAR(PLUS_PRICE_CENTS, { showCents: false })}`
-          : `Pay ${formatZAR(priceCents, { showCents: false })} for a year`}
-      </Button3D>
-      <p className="text-center text-[10px] text-ink-faint font-bold mt-3 pb-6">
-        {config
-          ? `Secure checkout by PayFast${config.sandbox ? ' (sandbox)' : ''}. No auto-renewal — you choose when to pay again.`
-          : 'Test mode: payments aren’t connected yet, so this activates a trial year on this device.'}
-      </p>
     </Screen>
   )
 }

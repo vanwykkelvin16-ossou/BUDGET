@@ -10,6 +10,7 @@ import { captureIncomingRef } from './lib/referral'
 captureIncomingRef()
 import { TabBar } from './components/layout/TabBar'
 import { JuiceHost } from './components/juice/JuiceHost'
+import { PlusGate } from './components/PlusGate'
 import { Randy } from './components/ui/Randy'
 
 import { Auth } from './screens/Auth'
@@ -132,6 +133,7 @@ export function App() {
       </Routes>
       {!fullScreen && <TabBar />}
       <JuiceHost />
+      <PlusGate />
     </>
   )
 }
