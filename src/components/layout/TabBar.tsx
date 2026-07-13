@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 const TABS = [
   { to: '/', icon: '🏠', label: 'Home' },
   { to: '/quests', icon: '🎯', label: 'Quests' },
-  { to: '/goals', icon: '🏆', label: 'Goals' },
+  { to: '/goals', icon: '🏆', label: 'Savings' },
   { to: '/profile', icon: '👤', label: 'Profile' },
 ]
 

@@ -436,7 +436,7 @@ export function Dashboard() {
             </p>
             {sortedGoals.length === 0 && (
               <p className="text-sm text-ink-faint">
-                Make a savings goal first on the Goals tab 🏆
+                Make a savings goal first on the Savings tab 🏆
               </p>
             )}
             {sortedGoals.map((goal) => (
