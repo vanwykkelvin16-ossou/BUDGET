@@ -240,13 +240,6 @@ export function Dashboard() {
                   className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-violet to-aqua"
                   style={{ width: `${Math.min(100, Math.round(((daysElapsed(today, info.cycle) + 1) / daysInCycle(info.cycle)) * 100))}%` }}
                 />
-                <span
-                  aria-hidden
-                  className="absolute -top-2 -translate-x-1/2 text-[13px] leading-none select-none"
-                  style={{ left: `${Math.min(98, Math.max(2, Math.round(((daysElapsed(today, info.cycle) + 1) / daysInCycle(info.cycle)) * 100)))}%` }}
-                >
-                  🪙
-                </span>
               </div>
               <div className="flex justify-between mt-1.5 text-[9px] font-extrabold uppercase tracking-wider text-ink-faint">
                 <span>Day {daysElapsed(today, info.cycle) + 1}</span>
