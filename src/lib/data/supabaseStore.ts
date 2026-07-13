@@ -14,6 +14,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AppData, Bucket } from './types'
 import { emptyAppData } from './types'
 import type { DataStore, SyncOp } from './store'
+import { refreshGamification, syncPendingXpEvents } from './supabaseSync'
 
 const CACHE_KEY = 'pennyplay:supabase-cache:v1'
 const QUEUE_KEY = 'pennyplay:sync-queue:v1'
@@ -226,13 +227,29 @@ export class SupabaseStore implements DataStore {
     }
   }
 
-  async persist(data: AppData): Promise<void> {
+  async persist(data: AppData): Promise<AppData> {
     localStorage.setItem(CACHE_KEY, JSON.stringify(data))
     const ops = this.diff(this.previous, data)
     this.previous = structuredClone(data)
     if (ops.length > 0) {
       this.enqueue(ops)
       await this.flushQueue()
+    }
+    return this.syncGamification(data)
+  }
+
+  /** Mirror client-only XP to the server, then reload authoritative gamification. */
+  private async syncGamification(data: AppData): Promise<AppData> {
+    const userId = data.profile?.id ?? (await this.userId())
+    if (!userId || !data.profile) return data
+    try {
+      await syncPendingXpEvents(this.client, userId, data.xpEvents)
+      const merged = await refreshGamification(this.client, userId, data)
+      this.previous = structuredClone(merged)
+      localStorage.setItem(CACHE_KEY, JSON.stringify(merged))
+      return merged
+    } catch {
+      return data
     }
   }
 
@@ -356,6 +373,33 @@ export class SupabaseStore implements DataStore {
       }
     }
 
+    // Earned badges — keyed by badge_id, never deleted.
+    const prevBadges = new Map(before.userBadges.map((b) => [b.badgeId, b]))
+    const nextBadgeIds = new Set(next.userBadges.map((b) => b.badgeId))
+    for (const badge of next.userBadges) {
+      const old = prevBadges.get(badge.badgeId)
+      if (!old || JSON.stringify(old) !== JSON.stringify(badge)) {
+        ops.push({
+          table: 'user_badges',
+          op: 'upsert',
+          row: {
+            user_id: userId,
+            badge_id: badge.badgeId,
+            earned_at: badge.earnedAt,
+          },
+        })
+      }
+    }
+    for (const [badgeId] of prevBadges) {
+      if (!nextBadgeIds.has(badgeId)) {
+        ops.push({
+          table: 'user_badges',
+          op: 'delete',
+          row: { user_id: userId, badge_id: badgeId },
+        })
+      }
+    }
+
     return ops
   }
 
@@ -387,15 +431,25 @@ export class SupabaseStore implements DataStore {
               ? 'user_id,cycle_start'
               : op.table === 'user_quests'
                 ? 'user_id,quest_id,period_key'
-                : op.table === 'categories'
-                  ? 'user_id,id'
-                  : 'id'
+                : op.table === 'user_badges'
+                  ? 'user_id,badge_id'
+                  : op.table === 'categories'
+                    ? 'user_id,id'
+                    : 'id'
           const { error } = await this.client
             .from(op.table)
             .upsert(op.row, { onConflict: conflict })
           if (error) throw error
         } else {
-          const { error } = await this.client.from(op.table).delete().eq('id', op.row.id)
+          let query = this.client.from(op.table).delete()
+          if (op.table === 'user_badges') {
+            query = query
+              .eq('user_id', op.row.user_id as string)
+              .eq('badge_id', op.row.badge_id as string)
+          } else {
+            query = query.eq('id', op.row.id as string)
+          }
+          const { error } = await query
           if (error) throw error
         }
       } catch {

@@ -24,7 +24,7 @@ export interface DataStore {
    * Persist the whole app state. `ops` describes what changed at row level;
    * local adapters may ignore it, sync adapters queue it.
    */
-  persist(data: AppData, ops?: SyncOp[]): Promise<void>
+  persist(data: AppData, ops?: SyncOp[]): Promise<AppData>
   /** Wipe everything (sign-out / reset). */
   clear(): Promise<void>
   /** Authenticated user id, when the adapter has a notion of auth. */
@@ -57,8 +57,9 @@ export class LocalStore implements DataStore {
     }
   }
 
-  async persist(data: AppData): Promise<void> {
+  async persist(data: AppData): Promise<AppData> {
     localStorage.setItem(this.key, JSON.stringify(data))
+    return data
   }
 
   async clear(): Promise<void> {
