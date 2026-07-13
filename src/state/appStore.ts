@@ -191,7 +191,8 @@ async function applyHousekeeping(
   const today = todaySAST()
   const data = runHousekeeping(get().data, today, nowISO())
   set({ data, currentDay: today })
-  await store.persist(data)
+  const synced = await store.persist(data)
+  set({ data: reconcile(synced, today) })
 }
 
 export function runHousekeeping(input: AppData, today: string, when: string): AppData {
@@ -353,7 +354,8 @@ export const useAppStore = create<AppState>((set, get) => {
     reconcile(data, today)
     set({ data, currentDay: today })
     if (juice.length > 0) useJuiceStore.getState().push(...juice)
-    await store.persist(data)
+    const synced = await store.persist(data)
+    set({ data: reconcile(synced, today) })
   }
 
   return {
@@ -378,7 +380,8 @@ export const useAppStore = create<AppState>((set, get) => {
       const data = runHousekeeping(stored, todaySAST(), nowISO())
       setSoundEnabled(data.profile?.soundEnabled ?? true)
       set({ loaded: true, needsAuth: false, data })
-      await store.persist(data)
+      const synced = await store.persist(data)
+      set({ data: reconcile(synced, todaySAST()) })
     },
 
     reload: async () => {
@@ -389,7 +392,8 @@ export const useAppStore = create<AppState>((set, get) => {
     startDemo: async () => {
       const data = runHousekeeping(buildDemoData(), todaySAST(), nowISO())
       set({ loaded: true, data })
-      await store.persist(data)
+      const synced = await store.persist(data)
+      set({ data: synced })
     },
 
     createProfile: async (params) => {
@@ -434,7 +438,8 @@ export const useAppStore = create<AppState>((set, get) => {
       const data = runHousekeeping(base, today, nowISO())
       set({ loaded: true, data })
       useJuiceStore.getState().push({ kind: 'confetti' }, { kind: 'coins' })
-      await store.persist(data)
+      const synced = await store.persist(data)
+      set({ data: synced })
     },
 
     addExpense: async ({ amountCents, categoryId, note }) =>
@@ -514,7 +519,8 @@ export const useAppStore = create<AppState>((set, get) => {
       if (today === state.currentDay) return
       const data = runHousekeeping(state.data, today, nowISO())
       set({ data, currentDay: today })
-      await store.persist(data)
+      const synced = await store.persist(data)
+      set({ data: reconcile(synced, today) })
     },
 
     syncExternal: async () => {
@@ -831,9 +837,11 @@ export const useAppStore = create<AppState>((set, get) => {
       })
 
       if (salaryChanged || payDateChanged) {
-        const data = runHousekeeping(get().data, todaySAST(), nowISO())
+        const today = todaySAST()
+        const data = runHousekeeping(get().data, today, nowISO())
         set({ data })
-        await store.persist(data)
+        const synced = await store.persist(data)
+        set({ data: reconcile(synced, today) })
       }
     },
 

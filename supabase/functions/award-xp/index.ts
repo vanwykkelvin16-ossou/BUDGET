@@ -167,6 +167,20 @@ Deno.serve(async (req) => {
       return json({ awarded: true, amount: quest.reward_xp })
     }
 
+  /** Generic idempotent award — sweep, streak bonus, and future client awards. */
+    if (body.action === 'award') {
+      const amount = Number(body.amount)
+      const reason: string = body.reason
+      const refId: string = body.refId
+      const date: string = body.date
+      const allowed = new Set(['sweep', 'streak_bonus'])
+      if (!allowed.has(reason) || !Number.isFinite(amount) || amount <= 0 || !refId || !date) {
+        return json({ error: 'invalid award payload' }, 400)
+      }
+      await award(amount, reason, refId, date)
+      return json({ awarded: true, amount })
+    }
+
     return json({ error: 'unknown action' }, 400)
   } catch (err) {
     return json({ error: String(err) }, 500)
