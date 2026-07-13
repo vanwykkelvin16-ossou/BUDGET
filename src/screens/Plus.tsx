@@ -15,6 +15,7 @@ import {
   membershipStatus,
   payfastCheckoutUrl,
   payfastConfig,
+  PLUS_DAYS,
   PLUS_PRICE_CENTS,
   saveMembership,
   yearFrom,
@@ -27,13 +28,13 @@ import { Card } from '../components/ui/Card'
 import { Button3D } from '../components/ui/Button3D'
 import { Randy } from '../components/ui/Randy'
 
-const PERKS: [string, string][] = [
-  ['🪙', 'Fun money for today — always true to your real cash'],
-  ['🏆', 'Savings goals with milestones and auto-save'],
-  ['🎯', 'Quests, streaks, XP and rank themes'],
-  ['🔔', 'Pay-day, overspend and streak nudges'],
-  ['📆', 'Month tracker, year view and net worth'],
-  ['✨', 'Every new feature we ship this year'],
+const PERKS: string[] = [
+  'Fun money that always matches your real cash',
+  'Savings goals, milestones & auto-save',
+  'Quests, streaks, XP & rank themes',
+  'Smart nudges: pay day, overspend, streaks',
+  'Month tracker, year view & net worth',
+  'Every new feature for the next 12 months',
 ]
 
 export function Plus() {
@@ -46,6 +47,7 @@ export function Plus() {
 
   const today = todaySAST()
   const status = membershipStatus(membership, today)
+  const remainingDays = daysLeft(membership, today)
   const config = payfastConfig()
 
   // Supabase mode: the server-verified membership wins over local state.
@@ -116,59 +118,102 @@ export function Plus() {
         <h1 className="font-display font-extrabold text-2xl">PennyPlay Plus</h1>
       </header>
 
-      {/* Offer card */}
+      {/* Offer / member card */}
       <div
         className="rounded-[26px] p-[2px] mb-4"
         style={{ background: 'linear-gradient(120deg,#7c3aed,#22d3ee,#a3e635)' }}
       >
-        <Card className="!border-transparent text-center py-6">
-          <Randy mood="celebrating" size={84} className="mx-auto" />
-          <p className="font-display font-extrabold text-4xl mt-2">
-            <span className="text-gradient-win">{formatZAR(PLUS_PRICE_CENTS, { showCents: false })}</span>
-            <span className="text-lg text-ink-soft"> / year</span>
-          </p>
-          <p className="text-xs text-ink-faint font-bold mt-1">
-            One payment · billed yearly · full access for 12 months
-          </p>
+        <Card className="!border-transparent text-center pt-6 pb-5 relative overflow-hidden">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-8 -translate-x-1/2 w-52 h-28
+                       rounded-full bg-gold/15 blur-3xl"
+          />
+          <div className="relative">
+            <Randy mood="celebrating" size={76} className="mx-auto" />
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-ink-faint mt-2">
+              PennyPlay Plus
+            </p>
+            <p className="font-display font-extrabold leading-tight mt-1">
+              <span className="text-gradient-gold animate-shimmer text-5xl">
+                {formatZAR(PLUS_PRICE_CENTS, { showCents: false })}
+              </span>
+              <span className="text-base text-ink-soft"> / year</span>
+            </p>
 
-          {status === 'active' && membership && (
-            <p
-              className="inline-block mt-3 px-3 py-1 rounded-full bg-lime/15 border border-lime/40
-                         text-lime text-xs font-extrabold"
-            >
-              ✓ Active until {formatDateLong(membership.paidUntil)} ·{' '}
-              {daysLeft(membership, today)} days left
-            </p>
-          )}
-          {status === 'expired' && (
-            <p
-              className="inline-block mt-3 px-3 py-1 rounded-full bg-coral/15 border border-coral/40
-                         text-coral text-xs font-extrabold"
-            >
-              Your year is up — renew to keep full access
-            </p>
-          )}
-          {justPaid && status !== 'active' && (
-            <p className="text-xs text-aqua font-bold mt-3">
-              Payment received — your year activates as soon as PayFast confirms it. Pull down to
-              refresh in a minute.
-            </p>
-          )}
-          {cancelled && (
-            <p className="text-xs text-ink-faint font-bold mt-3">Payment cancelled — no charge.</p>
-          )}
+            <div className="flex items-stretch justify-center divide-x divide-edge mt-4">
+              <div className="flex-1 px-1.5 flex flex-col items-center gap-1">
+                <span className="font-display font-extrabold text-[13px] text-ink leading-none">One</span>
+                <span className="text-[9.5px] text-ink-faint font-bold leading-tight">payment</span>
+              </div>
+              <div className="flex-1 px-1.5 flex flex-col items-center gap-1">
+                <span className="font-display font-extrabold text-[13px] text-ink leading-none">Yearly</span>
+                <span className="text-[9.5px] text-ink-faint font-bold leading-tight">billing</span>
+              </div>
+              <div className="flex-1 px-1.5 flex flex-col items-center gap-1">
+                <span className="font-display font-extrabold text-[13px] text-ink leading-none">12 months</span>
+                <span className="text-[9.5px] text-ink-faint font-bold leading-tight">full access</span>
+              </div>
+            </div>
+
+            {status === 'active' && membership && (
+              <div className="mt-4 px-2 text-left">
+                <p className="text-center text-[11px] font-extrabold text-lime mb-1.5">
+                  ✓ Active until {formatDateLong(membership.paidUntil)}{' '}
+                  {membership.paidUntil.slice(0, 4)} · {remainingDays} days left
+                </p>
+                <div className="relative h-2 rounded-full bg-bg-deep border border-edge/60">
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-lime to-aqua"
+                    style={{ width: `${Math.max(3, Math.round((remainingDays / PLUS_DAYS) * 100))}%` }}
+                  />
+                </div>
+                <div className="flex justify-between mt-1.5 text-[9px] font-extrabold uppercase tracking-wider text-ink-faint">
+                  <span>Your year</span>
+                  <span>Renews by choice 🎉</span>
+                </div>
+              </div>
+            )}
+            {status === 'expired' && (
+              <p
+                className="inline-block mt-4 px-3 py-1 rounded-full bg-coral/15 border border-coral/40
+                           text-coral text-xs font-extrabold"
+              >
+                Your year is up — renew to keep full access
+              </p>
+            )}
+            {justPaid && status !== 'active' && (
+              <p className="text-xs text-aqua font-bold mt-4">
+                Payment received — your year activates as soon as PayFast confirms it. Check back in
+                a minute.
+              </p>
+            )}
+            {cancelled && (
+              <p className="text-xs text-ink-faint font-bold mt-4">Payment cancelled — no charge.</p>
+            )}
+          </div>
         </Card>
       </div>
 
       {/* What you get */}
       <Card className="mb-4">
-        <p className="text-xs font-extrabold uppercase tracking-widest text-ink-faint mb-3">
-          A full year of everything
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-ink-faint mb-3">
+          Everything, unlocked
         </p>
         <div className="flex flex-col gap-2.5">
-          {PERKS.map(([icon, text]) => (
-            <div key={text} className="flex items-start gap-2.5">
-              <span className="text-base leading-none mt-0.5">{icon}</span>
+          {PERKS.map((text) => (
+            <div key={text} className="flex items-center gap-3">
+              <span
+                className="w-6 h-6 shrink-0 rounded-full bg-gradient-to-b from-lime to-emerald
+                           flex items-center justify-center text-[11px] font-extrabold text-[#1a2e05]"
+                aria-hidden
+              >
+                ✓
+              </span>
               <p className="text-sm text-ink-soft font-semibold leading-snug">{text}</p>
             </div>
           ))}
