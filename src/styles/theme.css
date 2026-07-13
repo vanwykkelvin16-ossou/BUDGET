@@ -38,6 +38,8 @@
   /* Rank accent (swapped by data-theme on <html>) */
   --color-accent: #7c3aed;
   --color-accent-soft: #a78bfa;
+  /* Accent used as text: soft on dark backgrounds, strong on light. */
+  --color-accent-ink: var(--color-accent-soft);
 
   --radius-card: 24px;
   --radius-bubble: 18px;
@@ -68,6 +70,7 @@ html.light {
   --color-ink: #2b2140;
   --color-ink-soft: #6d5f93;
   --color-ink-faint: #a294c4;
+  --color-accent-ink: var(--color-accent);
 }
 
 /* Rank accent themes — unlocked by levelling up */
