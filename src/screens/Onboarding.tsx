@@ -3,7 +3,7 @@
  * a minute. Demo mode is one tap away on the first step.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../state/appStore'
 import { Screen } from '../components/layout/Screen'
@@ -13,7 +13,7 @@ import { NumberPad } from '../components/ui/NumberPad'
 import { useAmountEntry } from '../components/ui/useAmountEntry'
 import { Randy, RandyIcon } from '../components/ui/Randy'
 import { adjustSplit, allocateIncome, DEFAULT_SPLITS } from '../lib/engine/allocate'
-import { isSupabaseConfigured } from '../lib/supabaseClient'
+import { isSupabaseConfigured, getSupabaseClient } from '../lib/supabaseClient'
 import type { Bucket, BucketSplits } from '../lib/data/types'
 import { formatRands } from '../lib/money'
 
@@ -97,6 +97,17 @@ export function Onboarding() {
   const [splits, setSplits] = useState<BucketSplits>(DEFAULT_SPLITS)
   const [busy, setBusy] = useState(false)
   const salary = useAmountEntry()
+
+  // Pre-fill email from the auth account when Supabase is wired.
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return
+    const client = getSupabaseClient()
+    if (!client) return
+    void client.auth.getSession().then(({ data }) => {
+      const authEmail = data.session?.user.email
+      if (authEmail) setEmail((current) => current || authEmail.toLowerCase())
+    })
+  }, [])
 
   const stepIndex = STEP_ORDER.indexOf(step)
   const preview = allocateIncome(salary.amountCents, splits)
