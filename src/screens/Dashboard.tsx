@@ -197,23 +197,20 @@ export function Dashboard() {
               )
             ) : (
               <>
-                <div className="grid grid-cols-3 gap-2 mt-2 px-1">
-                  <HeroChip value={formatRands(sts.weekCents)} label="to spend this week" />
-                  <HeroChip
+                <div className="flex items-stretch justify-center divide-x divide-edge mt-3">
+                  <HeroStat value={formatRands(sts.weekCents)} label="to spend this week" />
+                  <HeroStat
                     value={formatRands(Math.max(0, sts.effectiveRemainingCents))}
                     label="left till pay day"
                   />
-                  <HeroChip
+                  <HeroStat
                     value={String(info.daysRemaining)}
                     label={info.daysRemaining === 1 ? 'day to pay day' : 'days to pay day'}
                   />
                 </div>
                 {sts.cappedByCash && (
-                  <div
-                    className="mt-3 mx-1 flex items-start gap-2.5 text-left rounded-2xl
-                               bg-ember/10 border border-ember/30 px-3.5 py-3"
-                  >
-                    <span className="text-lg leading-none mt-0.5" aria-hidden>
+                  <div className="mt-3 mx-1 flex items-start gap-2 text-left rounded-xl bg-ember/10 px-3 py-2.5">
+                    <span className="text-sm leading-none mt-0.5" aria-hidden>
                       💡
                     </span>
                     <p className="text-[11px] font-bold text-ember leading-relaxed">
@@ -223,7 +220,7 @@ export function Dashboard() {
                       <b className="text-ink">
                         {formatRands(Math.max(0, sts.effectiveRemainingCents))}
                       </b>{' '}
-                      right now — so we count what's real 👍
+                      right now — so we count what's real{'\u00A0'}👍
                     </p>
                   </div>
                 )}
@@ -485,10 +482,10 @@ function weekRangeLabel(start: string): string {
 }
 
 /** One small self-explaining number under the hero, e.g. "R 2 692 · to spend this week". */
-function HeroChip({ value, label }: { value: string; label: string }) {
+function HeroStat({ value, label }: { value: string; label: string }) {
   return (
-    <div className="rounded-2xl bg-bg-deep/70 border border-edge px-1.5 py-2 flex flex-col items-center gap-0.5">
-      <span className="font-display font-extrabold text-sm text-ink leading-none">{value}</span>
+    <div className="flex-1 px-1.5 flex flex-col items-center gap-1">
+      <span className="font-display font-extrabold text-[15px] text-ink leading-none">{value}</span>
       <span className="text-[9.5px] text-ink-faint font-bold leading-tight text-center">{label}</span>
     </div>
   )
