@@ -27,10 +27,22 @@ export interface Membership {
 
 const KEY = 'pennyplay:membership:v1'
 
+/**
+ * One year at a time: a membership can never run further than 365 days
+ * from today. Also self-heals over-stacked dates from older builds.
+ */
+export function clampToOneYear(m: Membership, today: string = todaySAST()): Membership {
+  const cap = addDays(today, PLUS_DAYS)
+  return m.paidUntil > cap ? { ...m, paidUntil: cap } : m
+}
+
 export function loadMembership(): Membership | null {
   try {
     const raw = localStorage.getItem(KEY)
-    return raw ? (JSON.parse(raw) as Membership) : null
+    if (!raw) return null
+    const clamped = clampToOneYear(JSON.parse(raw) as Membership)
+    localStorage.setItem(KEY, JSON.stringify(clamped))
+    return clamped
   } catch {
     return null
   }

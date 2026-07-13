@@ -10,6 +10,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useAppStore } from '../state/appStore'
 import { getSupabaseClient } from '../lib/supabaseClient'
 import {
+  clampToOneYear,
   daysLeft,
   loadMembership,
   membershipStatus,
@@ -96,12 +97,12 @@ export function Plus() {
         .eq('user_id', auth.user.id)
         .maybeSingle()
       if (data?.paid_until) {
-        const server: Membership = {
+        const server: Membership = clampToOneYear({
           paidUntil: data.paid_until as string,
           paymentRef: (data.payment_ref as string) ?? 'payfast',
           amountCents: (data.amount_cents as number) ?? PLUS_PRICE_CENTS,
           activatedAt: (data.activated_at as string) ?? '',
-        }
+        })
         saveMembership(server)
         setMembership(server)
       }

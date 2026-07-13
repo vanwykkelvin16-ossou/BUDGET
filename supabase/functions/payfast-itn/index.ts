@@ -89,11 +89,14 @@ Deno.serve(async (req) => {
     }
   }
 
+  // One year at a time: never further than 365 days from today.
+  const cap = new Date(Date.parse(today) + YEAR_DAYS * 86_400_000).toISOString().slice(0, 10)
   const base =
     existing?.paid_until && existing.paid_until > today ? existing.paid_until : today
-  const paidUntil = new Date(Date.parse(base) + YEAR_DAYS * 86_400_000)
+  let paidUntil = new Date(Date.parse(base) + YEAR_DAYS * 86_400_000)
     .toISOString()
     .slice(0, 10)
+  if (paidUntil > cap) paidUntil = cap
 
   const { error } = await supabase.from('memberships').upsert({
     user_id: userId,

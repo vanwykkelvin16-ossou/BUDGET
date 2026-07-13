@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  clampToOneYear,
   daysLeft,
   membershipStatus,
   payfastCheckoutUrl,
@@ -32,6 +33,12 @@ describe('membership status', () => {
     expect(yearFrom(null, TODAY)).toBe('2027-07-13')
     expect(yearFrom(paidUpTo('2026-07-12'), TODAY)).toBe('2027-07-13') // lapsed → from today
     expect(yearFrom(paidUpTo('2026-09-01'), TODAY)).toBe('2027-09-01') // active → stacks on
+  })
+
+  it('never runs further than one year from today (self-heals 2050 dates)', () => {
+    expect(clampToOneYear(paidUpTo('2050-07-07'), TODAY).paidUntil).toBe('2027-07-13')
+    expect(clampToOneYear(paidUpTo('2026-09-01'), TODAY).paidUntil).toBe('2026-09-01') // untouched
+    expect(daysLeft(clampToOneYear(paidUpTo('2050-07-07'), TODAY), TODAY)).toBe(365)
   })
 })
 
