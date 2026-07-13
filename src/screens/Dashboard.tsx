@@ -128,8 +128,7 @@ export function Dashboard() {
             </h1>
             <p className="text-[11px] text-ink-faint font-bold">
               {formatWeekdayLong(today)} {formatDateLong(today)} · Day{' '}
-              {daysElapsed(today, info.cycle) + 1} of {daysInCycle(info.cycle)} · Pay in{' '}
-              {info.daysRemaining} day{info.daysRemaining === 1 ? '' : 's'}
+              {daysElapsed(today, info.cycle) + 1} of {daysInCycle(info.cycle)}
             </p>
           </div>
           <StreakFlame
@@ -198,23 +197,20 @@ export function Dashboard() {
               )
             ) : (
               <>
-                <div className="grid grid-cols-3 gap-2 mt-2 px-1">
-                  <HeroChip value={formatRands(sts.weekCents)} label="to spend this week" />
-                  <HeroChip
+                <div className="flex items-stretch justify-center divide-x divide-edge mt-3">
+                  <HeroStat value={formatRands(sts.weekCents)} label="to spend this week" />
+                  <HeroStat
                     value={formatRands(Math.max(0, sts.effectiveRemainingCents))}
                     label="left till pay day"
                   />
-                  <HeroChip
+                  <HeroStat
                     value={String(info.daysRemaining)}
                     label={info.daysRemaining === 1 ? 'day to pay day' : 'days to pay day'}
                   />
                 </div>
                 {sts.cappedByCash && (
-                  <div
-                    className="mt-3 mx-1 flex items-start gap-2.5 text-left rounded-2xl
-                               bg-ember/10 border border-ember/30 px-3.5 py-3"
-                  >
-                    <span className="text-lg leading-none mt-0.5" aria-hidden>
+                  <div className="mt-3 mx-1 flex items-start gap-2 text-left rounded-xl bg-ember/10 px-3 py-2.5">
+                    <span className="text-sm leading-none mt-0.5" aria-hidden>
                       💡
                     </span>
                     <p className="text-[11px] font-bold text-ember leading-relaxed">
@@ -224,7 +220,7 @@ export function Dashboard() {
                       <b className="text-ink">
                         {formatRands(Math.max(0, sts.effectiveRemainingCents))}
                       </b>{' '}
-                      right now — so we count what's real 👍
+                      right now — so we count what's real{'\u00A0'}👍
                     </p>
                   </div>
                 )}
@@ -291,7 +287,7 @@ export function Dashboard() {
       </div>
 
       {/* Fun fund — first-class citizen */}
-      <Card glow="ember" className="flex items-center gap-4 mb-4">
+      <Card className="flex items-center gap-4 mb-4">
         <ProgressRing
           pct={info.funFund.budgetCents > 0 ? info.funFund.spentCents / info.funFund.budgetCents : 0}
           size={72}
@@ -306,23 +302,22 @@ export function Dashboard() {
             <span className="text-gradient-gold">{formatRands(info.funFund.remainingCents)}</span>{' '}
             left for {profile.funFundName}
           </p>
-          <p className="text-xs text-ink-soft">
-            Spent {formatRands(info.funFund.spentCents)} · You get{' '}
-            {formatRands(info.funFund.budgetCents)} this month
+          <p className="text-xs text-ink-faint font-bold">
+            Spent {formatRands(info.funFund.spentCents)} of {formatRands(info.funFund.budgetCents)}{' '}
+            this month
           </p>
         </div>
       </Card>
 
       {/* This month: in − spent − saved = left over, always. */}
       <div className="grid grid-cols-2 gap-3 mb-1.5">
-        <MiniStat label="Money in" cents={info.incomeCents} tone="text-lime" icon="💰" />
-        <MiniStat label="Money spent" cents={info.moneyOutCents} tone="text-coral" icon="💸" />
-        <MiniStat label="Put in savings" cents={info.savedCents} tone="text-aqua" icon="🏦" />
+        <MiniStat label="Money in" cents={info.incomeCents} tone="text-lime" />
+        <MiniStat label="Money spent" cents={info.moneyOutCents} tone="text-coral" />
+        <MiniStat label="Put in savings" cents={info.savedCents} tone="text-aqua" />
         <MiniStat
           label={info.leftOverCents >= 0 ? 'Left over' : 'Overspent'}
           cents={Math.abs(info.leftOverCents)}
           tone={info.leftOverCents >= 0 ? 'text-lime' : 'text-coral'}
-          icon={info.leftOverCents >= 0 ? '✨' : '🚨'}
         />
       </div>
       <p className="text-center text-[10px] text-ink-faint font-bold mb-4">
@@ -332,16 +327,22 @@ export function Dashboard() {
         )}
       </p>
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <Link to="/months">
-          <Card className="text-center py-2.5 px-1">
-            <span className="font-display font-extrabold text-xs">📆 Past months</span>
-          </Card>
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        <Link
+          to="/months"
+          className="block text-center py-2.5 rounded-2xl border border-edge
+                     font-display font-extrabold text-xs text-ink-soft
+                     active:scale-[0.98] transition-transform"
+        >
+          📆 Past months
         </Link>
-        <Link to="/wealth">
-          <Card className="text-center py-2.5 px-1">
-            <span className="font-display font-extrabold text-xs">💎 All my money</span>
-          </Card>
+        <Link
+          to="/wealth"
+          className="block text-center py-2.5 rounded-2xl border border-edge
+                     font-display font-extrabold text-xs text-ink-soft
+                     active:scale-[0.98] transition-transform"
+        >
+          💎 All my money
         </Link>
       </div>
 
@@ -481,31 +482,18 @@ function weekRangeLabel(start: string): string {
 }
 
 /** One small self-explaining number under the hero, e.g. "R 2 692 · to spend this week". */
-function HeroChip({ value, label }: { value: string; label: string }) {
+function HeroStat({ value, label }: { value: string; label: string }) {
   return (
-    <div className="rounded-2xl bg-bg-deep/70 border border-edge px-1.5 py-2 flex flex-col items-center gap-0.5">
-      <span className="font-display font-extrabold text-sm text-ink leading-none">{value}</span>
+    <div className="flex-1 px-1.5 flex flex-col items-center gap-1">
+      <span className="font-display font-extrabold text-[15px] text-ink leading-none">{value}</span>
       <span className="text-[9.5px] text-ink-faint font-bold leading-tight text-center">{label}</span>
     </div>
   )
 }
 
-function MiniStat({
-  label,
-  cents,
-  tone,
-  icon,
-}: {
-  label: string
-  cents: number
-  tone: string
-  icon: string
-}) {
+function MiniStat({ label, cents, tone }: { label: string; cents: number; tone: string }) {
   return (
     <Card className="py-3 px-2 text-center">
-      <p className="text-base leading-none mb-1" aria-hidden>
-        {icon}
-      </p>
       <p className={`font-display font-extrabold text-sm ${tone}`}>
         <CountUp value={cents} format={(v) => formatRands(v)} duration={0.7} />
       </p>
