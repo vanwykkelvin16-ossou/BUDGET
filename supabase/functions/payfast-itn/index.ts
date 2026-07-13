@@ -16,6 +16,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { md5 } from 'npm:js-md5@0.8.3'
 
 const PLUS_PRICE = '200.00'
+const REFERRAL_PRICE = '150.00' // first payment with an unlocked R50 reward
 const YEAR_DAYS = 365
 
 Deno.serve(async (req) => {
@@ -26,9 +27,12 @@ Deno.serve(async (req) => {
   const data: Record<string, string> = {}
   for (const [k, v] of params) data[k] = v
 
-  // 1) Status + amount must match the offer.
+  // 1) Status + amount must match the offer. A referral-discounted first
+  //    payment (R150) is only accepted after checking the referral below.
   if (data.payment_status !== 'COMPLETE') return new Response('ignored', { status: 200 })
-  if (Number.parseFloat(data.amount_gross ?? '0') < Number.parseFloat(PLUS_PRICE)) {
+  const claimsDiscount = data.custom_str2 === 'ref50'
+  const expected = Number.parseFloat(claimsDiscount ? REFERRAL_PRICE : PLUS_PRICE)
+  if (Number.parseFloat(data.amount_gross ?? '0') < expected) {
     return new Response('amount mismatch', { status: 400 })
   }
 
@@ -71,6 +75,20 @@ Deno.serve(async (req) => {
     .select('paid_until')
     .eq('user_id', userId)
     .maybeSingle()
+
+  // The R50 reward: first payment only, and only with a real signed-up
+  // referral on record.
+  if (claimsDiscount) {
+    if (existing) return new Response('discount only applies to the first payment', { status: 400 })
+    const { count } = await supabase
+      .from('referrals')
+      .select('referred_user_id', { count: 'exact', head: true })
+      .eq('referrer_user_id', userId)
+    if (!count || count < 1) {
+      return new Response('no signed-up referral on record', { status: 400 })
+    }
+  }
+
   const base =
     existing?.paid_until && existing.paid_until > today ? existing.paid_until : today
   const paidUntil = new Date(Date.parse(base) + YEAR_DAYS * 86_400_000)

@@ -3,6 +3,11 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAppStore } from './state/appStore'
 import { STORAGE_KEY } from './lib/data/store'
 import { runNotificationSweep } from './lib/notifications'
+import { captureIncomingRef } from './lib/referral'
+
+// A share link (?ref=CODE) may land on any route — remember whose it was
+// before the router strips the query.
+captureIncomingRef()
 import { TabBar } from './components/layout/TabBar'
 import { JuiceHost } from './components/juice/JuiceHost'
 import { Randy } from './components/ui/Randy'

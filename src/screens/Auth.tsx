@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { useAppStore } from '../state/appStore'
 import { getSupabaseClient } from '../lib/supabaseClient'
+import { referredBy } from '../lib/referral'
 import { Screen } from '../components/layout/Screen'
 import { Button3D } from '../components/ui/Button3D'
 import { Card } from '../components/ui/Card'
@@ -50,6 +51,9 @@ export function Auth() {
                 surname: surname.trim(),
                 username: username.trim(),
                 phone: phone.trim(),
+                // Whose share link brought them here (unlocks the
+                // referrer's R50 once this account exists).
+                referred_by: referredBy() ?? '',
               },
             },
           })

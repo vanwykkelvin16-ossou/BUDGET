@@ -21,6 +21,15 @@ import {
   yearFrom,
   type Membership,
 } from '../lib/membership'
+import {
+  adoptServerReferralCode,
+  hasShared,
+  myReferralCode,
+  plusPriceCents,
+  rewardUnlocked,
+  saveRewardUnlocked,
+  shareApp,
+} from '../lib/referral'
 import { formatDateLong, todaySAST } from '../lib/dates'
 import { formatZAR } from '../lib/money'
 import { Screen } from '../components/layout/Screen'
@@ -50,6 +59,31 @@ export function Plus() {
   const remainingDays = daysLeft(membership, today)
   const config = payfastConfig()
 
+  // Give R… get R50: share code + reward state.
+  const [refCode, setRefCode] = useState(myReferralCode)
+  const [shared, setShared] = useState(hasShared)
+  const [reward, setReward] = useState(rewardUnlocked)
+  const [shareNote, setShareNote] = useState<string | null>(null)
+  const isFirstPayment = membership === null
+  const priceCents = plusPriceCents({
+    fullPriceCents: PLUS_PRICE_CENTS,
+    unlocked: reward,
+    isFirstPayment,
+  })
+
+  async function share() {
+    const result = await shareApp(refCode)
+    if (result !== 'failed') setShared(true)
+    setShareNote(
+      result === 'copied'
+        ? 'Link copied — paste it to a friend!'
+        : result === 'shared'
+          ? 'Shared! Your R50 unlocks when they sign up.'
+          : 'Sharing is blocked here — your code is above.',
+    )
+    window.setTimeout(() => setShareNote(null), 3000)
+  }
+
   // Supabase mode: the server-verified membership wins over local state.
   useEffect(() => {
     const supabase = getSupabaseClient()
@@ -72,6 +106,25 @@ export function Plus() {
         saveMembership(server)
         setMembership(server)
       }
+      // Share links must use the account's code, and a signed-up friend
+      // unlocks the R50 — both server truths.
+      const { data: me } = await supabase
+        .from('profiles')
+        .select('referral_code')
+        .eq('id', auth.user.id)
+        .maybeSingle()
+      if (me?.referral_code) {
+        adoptServerReferralCode(me.referral_code as string)
+        setRefCode(me.referral_code as string)
+      }
+      const { count } = await supabase
+        .from('referrals')
+        .select('referred_user_id', { count: 'exact', head: true })
+        .eq('referrer_user_id', auth.user.id)
+      if ((count ?? 0) > 0) {
+        saveRewardUnlocked(true)
+        setReward(true)
+      }
     })()
   }, [justPaid])
 
@@ -88,6 +141,8 @@ export function Plus() {
         email: profile?.email || undefined,
         name: profile?.displayName || undefined,
         userId,
+        amountCents: priceCents,
+        referralDiscount: reward && isFirstPayment,
       })
       return
     }
@@ -96,7 +151,7 @@ export function Plus() {
     const activated: Membership = {
       paidUntil: yearFrom(membership, today),
       paymentRef: 'test-mode',
-      amountCents: PLUS_PRICE_CENTS,
+      amountCents: priceCents,
       activatedAt: new Date().toISOString(),
     }
     saveMembership(activated)
@@ -144,6 +199,12 @@ export function Plus() {
               </span>
               <span className="text-base text-ink-soft"> / year</span>
             </p>
+            {reward && isFirstPayment && (
+              <p className="text-xs font-extrabold text-lime mt-1">
+                🎁 {formatZAR(priceCents, { showCents: false })} for your first year — friend
+                reward applied
+              </p>
+            )}
 
             <div className="flex items-stretch justify-center divide-x divide-edge mt-4">
               <div className="flex-1 px-1.5 flex flex-col items-center gap-1">
@@ -199,6 +260,41 @@ export function Plus() {
         </Card>
       </div>
 
+      {/* Give R50, get R50 off */}
+      <Card className="mb-4">
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-ink-faint mb-2">
+          Share &amp; save R50
+        </p>
+        <p className="text-sm text-ink-soft font-semibold leading-snug">
+          Share PennyPlay with a friend. When they <b className="text-ink">sign up</b>, R50 comes
+          off your first year — {formatZAR(PLUS_PRICE_CENTS, { showCents: false })} →{' '}
+          <b className="text-lime">R 150</b>.
+        </p>
+        <div className="flex items-center gap-2.5 mt-3">
+          <span
+            className="flex-1 text-center px-3 py-2.5 rounded-2xl bg-bg-deep border border-edge
+                       font-display font-extrabold tracking-[0.25em] text-ink"
+          >
+            {refCode}
+          </span>
+          <Button3D size="sm" variant="aqua" onClick={() => void share()}>
+            Share my link
+          </Button3D>
+        </div>
+        {shareNote && <p className="text-xs text-aqua font-bold mt-2">{shareNote}</p>}
+        <p className="text-[11px] font-bold mt-2.5">
+          {reward ? (
+            <span className="text-lime">✓ A friend signed up — your R50 is unlocked!</span>
+          ) : shared ? (
+            <span className="text-ink-faint">
+              Link shared · your R50 unlocks the moment a friend signs up with it
+            </span>
+          ) : (
+            <span className="text-ink-faint">No sign-up from your link yet</span>
+          )}
+        </p>
+      </Card>
+
       {/* What you get */}
       <Card className="mb-4">
         <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-ink-faint mb-3">
@@ -223,7 +319,7 @@ export function Plus() {
       <Button3D full size="lg" variant="gold" disabled={busy} onClick={() => void pay()}>
         {status === 'active'
           ? `Add another year — ${formatZAR(PLUS_PRICE_CENTS, { showCents: false })}`
-          : `Pay ${formatZAR(PLUS_PRICE_CENTS, { showCents: false })} for a year`}
+          : `Pay ${formatZAR(priceCents, { showCents: false })} for a year`}
       </Button3D>
       <p className="text-center text-[10px] text-ink-faint font-bold mt-3 pb-6">
         {config

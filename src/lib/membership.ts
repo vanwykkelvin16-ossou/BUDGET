@@ -93,6 +93,10 @@ export function payfastCheckoutUrl(params: {
   name?: string
   /** Passed back via ITN so the edge function knows whose year to activate. */
   userId?: string
+  /** Defaults to the full R200; R150 when the referral reward applies. */
+  amountCents?: number
+  /** Marks the ITN as a referral-discounted first payment for validation. */
+  referralDiscount?: boolean
 }): string {
   const { config, origin } = params
   const host = config.sandbox ? 'sandbox.payfast.co.za' : 'www.payfast.co.za'
@@ -101,13 +105,14 @@ export function payfastCheckoutUrl(params: {
     merchant_key: config.merchantKey,
     return_url: `${origin}/plus?paid=1`,
     cancel_url: `${origin}/plus?cancelled=1`,
-    amount: (PLUS_PRICE_CENTS / 100).toFixed(2),
+    amount: ((params.amountCents ?? PLUS_PRICE_CENTS) / 100).toFixed(2),
     item_name: 'PennyPlay Plus — 1 year',
     item_description: 'Full access to PennyPlay for 12 months, billed yearly.',
   })
   if (params.email) query.set('email_address', params.email)
   if (params.name) query.set('name_first', params.name)
   if (params.userId) query.set('custom_str1', params.userId)
+  if (params.referralDiscount) query.set('custom_str2', 'ref50')
   // Server-side confirmation: PayFast posts the ITN here and the edge
   // function writes the membership row.
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
