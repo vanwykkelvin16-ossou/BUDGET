@@ -128,8 +128,7 @@ export function Dashboard() {
             </h1>
             <p className="text-[11px] text-ink-faint font-bold">
               {formatWeekdayLong(today)} {formatDateLong(today)} · Day{' '}
-              {daysElapsed(today, info.cycle) + 1} of {daysInCycle(info.cycle)} · Pay in{' '}
-              {info.daysRemaining} day{info.daysRemaining === 1 ? '' : 's'}
+              {daysElapsed(today, info.cycle) + 1} of {daysInCycle(info.cycle)}
             </p>
           </div>
           <StreakFlame
@@ -291,7 +290,7 @@ export function Dashboard() {
       </div>
 
       {/* Fun fund — first-class citizen */}
-      <Card glow="ember" className="flex items-center gap-4 mb-4">
+      <Card className="flex items-center gap-4 mb-4">
         <ProgressRing
           pct={info.funFund.budgetCents > 0 ? info.funFund.spentCents / info.funFund.budgetCents : 0}
           size={72}
@@ -306,23 +305,22 @@ export function Dashboard() {
             <span className="text-gradient-gold">{formatRands(info.funFund.remainingCents)}</span>{' '}
             left for {profile.funFundName}
           </p>
-          <p className="text-xs text-ink-soft">
-            Spent {formatRands(info.funFund.spentCents)} · You get{' '}
-            {formatRands(info.funFund.budgetCents)} this month
+          <p className="text-xs text-ink-faint font-bold">
+            Spent {formatRands(info.funFund.spentCents)} of {formatRands(info.funFund.budgetCents)}{' '}
+            this month
           </p>
         </div>
       </Card>
 
       {/* This month: in − spent − saved = left over, always. */}
       <div className="grid grid-cols-2 gap-3 mb-1.5">
-        <MiniStat label="Money in" cents={info.incomeCents} tone="text-lime" icon="💰" />
-        <MiniStat label="Money spent" cents={info.moneyOutCents} tone="text-coral" icon="💸" />
-        <MiniStat label="Put in savings" cents={info.savedCents} tone="text-aqua" icon="🏦" />
+        <MiniStat label="Money in" cents={info.incomeCents} tone="text-lime" />
+        <MiniStat label="Money spent" cents={info.moneyOutCents} tone="text-coral" />
+        <MiniStat label="Put in savings" cents={info.savedCents} tone="text-aqua" />
         <MiniStat
           label={info.leftOverCents >= 0 ? 'Left over' : 'Overspent'}
           cents={Math.abs(info.leftOverCents)}
           tone={info.leftOverCents >= 0 ? 'text-lime' : 'text-coral'}
-          icon={info.leftOverCents >= 0 ? '✨' : '🚨'}
         />
       </div>
       <p className="text-center text-[10px] text-ink-faint font-bold mb-4">
@@ -332,16 +330,22 @@ export function Dashboard() {
         )}
       </p>
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <Link to="/months">
-          <Card className="text-center py-2.5 px-1">
-            <span className="font-display font-extrabold text-xs">📆 Past months</span>
-          </Card>
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        <Link
+          to="/months"
+          className="block text-center py-2.5 rounded-2xl border border-edge
+                     font-display font-extrabold text-xs text-ink-soft
+                     active:scale-[0.98] transition-transform"
+        >
+          📆 Past months
         </Link>
-        <Link to="/wealth">
-          <Card className="text-center py-2.5 px-1">
-            <span className="font-display font-extrabold text-xs">💎 All my money</span>
-          </Card>
+        <Link
+          to="/wealth"
+          className="block text-center py-2.5 rounded-2xl border border-edge
+                     font-display font-extrabold text-xs text-ink-soft
+                     active:scale-[0.98] transition-transform"
+        >
+          💎 All my money
         </Link>
       </div>
 
@@ -490,22 +494,9 @@ function HeroChip({ value, label }: { value: string; label: string }) {
   )
 }
 
-function MiniStat({
-  label,
-  cents,
-  tone,
-  icon,
-}: {
-  label: string
-  cents: number
-  tone: string
-  icon: string
-}) {
+function MiniStat({ label, cents, tone }: { label: string; cents: number; tone: string }) {
   return (
     <Card className="py-3 px-2 text-center">
-      <p className="text-base leading-none mb-1" aria-hidden>
-        {icon}
-      </p>
       <p className={`font-display font-extrabold text-sm ${tone}`}>
         <CountUp value={cents} format={(v) => formatRands(v)} duration={0.7} />
       </p>
