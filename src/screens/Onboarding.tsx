@@ -3,9 +3,10 @@
  * a minute. Demo mode is one tap away on the first step.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../state/appStore'
+import { getSupabaseClient } from '../lib/supabaseClient'
 import { Screen } from '../components/layout/Screen'
 import { Button3D } from '../components/ui/Button3D'
 import { Card } from '../components/ui/Card'
@@ -97,6 +98,40 @@ export function Onboarding() {
   const [splits, setSplits] = useState<BucketSplits>(DEFAULT_SPLITS)
   const [busy, setBusy] = useState(false)
   const salary = useAmountEntry()
+
+  // Supabase mode: identity was already captured at sign-up (Auth screen), so
+  // prefill it and skip straight to budget setup — never ask for it twice.
+  useEffect(() => {
+    const supabase = getSupabaseClient()
+    if (!supabase) return
+    let cancelled = false
+    void supabase.auth.getUser().then(({ data }) => {
+      const user = data.user
+      if (!user || cancelled) return
+      const meta = (user.user_metadata ?? {}) as Record<string, unknown>
+      const str = (v: unknown) => (typeof v === 'string' ? v : '')
+      const dn = str(meta.display_name)
+      const sn = str(meta.surname)
+      const un = str(meta.username)
+      const ph = str(meta.phone)
+      const em = user.email ?? ''
+      if (dn) setName(dn)
+      if (sn) setSurname(sn)
+      if (un) setUsername(un)
+      if (ph) setPhone(ph)
+      if (em) setEmail(em)
+      const identityComplete =
+        dn.trim().length >= 2 &&
+        sn.trim().length >= 2 &&
+        /^[a-zA-Z0-9_.]{3,20}$/.test(un.trim()) &&
+        /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em.trim()) &&
+        ph.replace(/\D/g, '').length >= 9
+      if (identityComplete) setStep((cur) => (cur === 'welcome' ? 'salary' : cur))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const stepIndex = STEP_ORDER.indexOf(step)
   const preview = allocateIncome(salary.amountCents, splits)
