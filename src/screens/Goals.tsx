@@ -13,8 +13,10 @@ import { Sheet } from '../components/ui/Sheet'
 import { EmptyState } from '../components/ui/EmptyState'
 import { NumberPad } from '../components/ui/NumberPad'
 import { useAmountEntry } from '../components/ui/useAmountEntry'
+import { EditEntrySheet, type LedgerEntry } from '../components/EditEntrySheet'
 import { formatRands, formatZAR, randsToCents } from '../lib/money'
-import type { Goal } from '../lib/data/types'
+import { formatDayLabel, todaySAST } from '../lib/dates'
+import type { Goal, GoalContribution } from '../lib/data/types'
 
 const GOAL_ICONS = ['🛟', '🏖️', '💻', '🚗', '🏠', '💍', '🎓', '👶', '🐶', '✈️', '🎸', '🎁']
 const GOAL_COLORS = ['#22D3EE', '#FB923C', '#8B5CF6', '#A3E635', '#FF5C7A', '#FACC15']
@@ -24,6 +26,7 @@ export function Goals() {
   const [addOpen, setAddOpen] = useState(false)
   const [editGoal, setEditGoal] = useState<Goal | null>(null)
   const [contributeTo, setContributeTo] = useState<Goal | null>(null)
+  const [editingEntry, setEditingEntry] = useState<LedgerEntry | null>(null)
 
   const active = goals.filter((g) => !g.achievedAt)
   const achieved = goals.filter((g) => g.achievedAt)
@@ -69,8 +72,16 @@ export function Goals() {
       )}
 
       <AddGoalSheet open={addOpen} onClose={() => setAddOpen(false)} />
-      <EditGoalSheet goal={editGoal} onClose={() => setEditGoal(null)} />
+      <EditGoalSheet
+        goal={editGoal}
+        onClose={() => setEditGoal(null)}
+        onEditContribution={(entry) => {
+          setEditGoal(null)
+          setEditingEntry(entry)
+        }}
+      />
       <ContributeSheet goal={contributeTo} onClose={() => setContributeTo(null)} />
+      <EditEntrySheet entry={editingEntry} onClose={() => setEditingEntry(null)} />
     </Screen>
   )
 }
@@ -236,9 +247,30 @@ function AddGoalSheet({ open, onClose }: { open: boolean; onClose: () => void })
   )
 }
 
-function EditGoalSheet({ goal, onClose }: { goal: Goal | null; onClose: () => void }) {
+const CONTRIB_LABEL: Record<GoalContribution['source'], string> = {
+  manual: 'You saved',
+  auto: 'Auto-save',
+  sweep: 'Leftovers',
+}
+
+function EditGoalSheet({
+  goal,
+  onClose,
+  onEditContribution,
+}: {
+  goal: Goal | null
+  onClose: () => void
+  onEditContribution: (entry: LedgerEntry) => void
+}) {
   const updateGoal = useAppStore((s) => s.updateGoal)
   const deleteGoal = useAppStore((s) => s.deleteGoal)
+  const contributions = useAppStore((s) => s.data.contributions)
+  const history = goal
+    ? contributions
+        .filter((c) => c.goalId === goal.id)
+        .sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt))
+    : []
+  const today = todaySAST()
 
   const [name, setName] = useState('')
   const [icon, setIcon] = useState(GOAL_ICONS[0])
@@ -346,6 +378,30 @@ function EditGoalSheet({ goal, onClose }: { goal: Goal | null; onClose: () => vo
           <p className="text-xs text-ink-faint">
             Already saved: <b style={{ color: goal.color }}>{formatRands(goal.savedCents)}</b>
           </p>
+        )}
+        {history.length > 0 && (
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-ink-faint mb-2">
+              What you've put in — tap to edit or remove
+            </p>
+            <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto no-scrollbar">
+              {history.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => onEditContribution({ type: 'contribution', item: c })}
+                  className="flex items-center justify-between px-3 py-2 rounded-xl bg-bg-deep
+                             border border-edge text-left active:scale-[0.99] transition-transform"
+                >
+                  <span className="text-xs font-bold text-ink-soft">
+                    {formatDayLabel(c.date, today)} · {CONTRIB_LABEL[c.source]}
+                  </span>
+                  <span className="font-display font-extrabold text-aqua text-sm">
+                    +{formatRands(c.amountCents)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
         )}
         <Button3D
           full

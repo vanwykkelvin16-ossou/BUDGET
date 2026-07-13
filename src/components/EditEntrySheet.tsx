@@ -1,12 +1,12 @@
 /**
- * Edit / delete a ledger entry (expense or income). Everything derived —
- * safe-to-spend, rings, quests, insights, snapshots, XP — reconciles the
- * moment a change is saved.
+ * Edit / delete a ledger entry (expense, income or savings contribution).
+ * Everything derived — safe-to-spend, rings, goal totals, quests, insights,
+ * snapshots, XP — reconciles the moment a change is saved.
  */
 
 import { useState } from 'react'
 import { useAppStore } from '../state/appStore'
-import type { IncomeEntry, IncomeSource, Transaction } from '../lib/data/types'
+import type { GoalContribution, IncomeEntry, IncomeSource, Transaction } from '../lib/data/types'
 import { formatDayLabel, todaySAST } from '../lib/dates'
 import { formatZAR, randsToCents } from '../lib/money'
 import { Sheet } from './ui/Sheet'
@@ -16,6 +16,7 @@ import { CategoryBadge } from './ui/CategoryBadge'
 export type LedgerEntry =
   | { type: 'expense'; item: Transaction }
   | { type: 'income'; item: IncomeEntry }
+  | { type: 'contribution'; item: GoalContribution }
 
 const SOURCES: { id: IncomeSource; label: string }[] = [
   { id: 'salary', label: '💼 Salary' },
@@ -34,10 +35,13 @@ export function EditEntrySheet({
   onClose: () => void
 }) {
   const categories = useAppStore((s) => s.data.categories)
+  const goals = useAppStore((s) => s.data.goals)
   const updateExpense = useAppStore((s) => s.updateExpense)
   const deleteExpense = useAppStore((s) => s.deleteExpense)
   const updateIncome = useAppStore((s) => s.updateIncome)
   const deleteIncome = useAppStore((s) => s.deleteIncome)
+  const updateContribution = useAppStore((s) => s.updateContribution)
+  const deleteContribution = useAppStore((s) => s.deleteContribution)
 
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
@@ -50,15 +54,17 @@ export function EditEntrySheet({
   if (entry && entry.item.id !== lastId) {
     setLastId(entry.item.id)
     setAmount(String(entry.item.amountCents / 100).replace('.', ','))
-    setNote(entry.item.note ?? '')
+    setNote(entry.type === 'contribution' ? '' : (entry.item.note ?? ''))
     setConfirmDelete(false)
     if (entry.type === 'expense') setCategoryId(entry.item.categoryId)
-    else setSource(entry.item.source)
+    else if (entry.type === 'income') setSource(entry.item.source)
   }
 
   if (!entry) return <Sheet open={false} onClose={onClose}>{null}</Sheet>
 
   const isExpense = entry.type === 'expense'
+  const isContribution = entry.type === 'contribution'
+  const goal = isContribution ? goals.find((g) => g.id === entry.item.goalId) : undefined
   const cents = randsToCents(amount)
 
   async function save() {
@@ -69,12 +75,14 @@ export function EditEntrySheet({
         categoryId,
         note: note.trim() || undefined,
       })
-    } else {
+    } else if (entry.type === 'income') {
       await updateIncome(entry.item.id, {
         amountCents: cents,
         source,
         note: note.trim() || undefined,
       })
+    } else {
+      await updateContribution(entry.item.id, { amountCents: cents })
     }
     onClose()
   }
@@ -82,18 +90,28 @@ export function EditEntrySheet({
   async function remove() {
     if (!entry) return
     if (entry.type === 'expense') await deleteExpense(entry.item.id)
-    else await deleteIncome(entry.item.id)
+    else if (entry.type === 'income') await deleteIncome(entry.item.id)
+    else await deleteContribution(entry.item.id)
     onClose()
   }
 
   const sorted = [...categories].sort((a, b) => a.sortOrder - b.sortOrder)
 
   return (
-    <Sheet open onClose={onClose} title={isExpense ? 'Edit expense' : 'Edit income'}>
+    <Sheet
+      open
+      onClose={onClose}
+      title={isExpense ? 'Edit expense' : isContribution ? 'Edit savings' : 'Edit income'}
+    >
       <div className="flex flex-col gap-4 pb-2">
         <p className="text-xs text-ink-faint font-bold -mt-3">
           Logged {formatDayLabel(entry.item.date, todaySAST())} · currently{' '}
           {formatZAR(entry.item.amountCents)}
+          {goal && (
+            <>
+              {' '}· saved to {goal.icon} {goal.name}
+            </>
+          )}
         </p>
 
         <label className="block">
@@ -107,7 +125,7 @@ export function EditEntrySheet({
             className={`w-full px-4 py-3 rounded-2xl bg-bg-deep border outline-none
                        font-display font-extrabold text-2xl text-center focus:border-accent ${
                          cents > 0 ? 'border-edge' : 'border-coral'
-                       } ${isExpense ? 'text-coral' : 'text-lime'}`}
+                       } ${isExpense ? 'text-coral' : isContribution ? 'text-aqua' : 'text-lime'}`}
           />
         </label>
 
@@ -133,7 +151,7 @@ export function EditEntrySheet({
               ))}
             </div>
           </div>
-        ) : (
+        ) : entry.type === 'income' ? (
           <div className="grid grid-cols-3 gap-2">
             {SOURCES.map((s) => (
               <button
@@ -149,16 +167,18 @@ export function EditEntrySheet({
               </button>
             ))}
           </div>
-        )}
+        ) : null}
 
-        <input
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="note (optional)"
-          maxLength={60}
-          className="w-full px-4 py-3 rounded-2xl bg-bg-deep border border-edge outline-none
-                     text-sm font-semibold placeholder:text-ink-faint focus:border-accent"
-        />
+        {!isContribution && (
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="note (optional)"
+            maxLength={60}
+            className="w-full px-4 py-3 rounded-2xl bg-bg-deep border border-edge outline-none
+                       text-sm font-semibold placeholder:text-ink-faint focus:border-accent"
+          />
+        )}
 
         <Button3D full disabled={cents <= 0} onClick={() => void save()}>
           Save changes

@@ -90,6 +90,8 @@ interface AppState {
   syncExternal: () => Promise<void>
   markNoSpendDay: () => Promise<void>
   contributeToGoal: (goalId: string, amountCents: number, source?: ContributionSource) => Promise<void>
+  updateContribution: (id: string, patch: { amountCents?: number }) => Promise<void>
+  deleteContribution: (id: string) => Promise<void>
   sweepToGoal: (goalId: string) => Promise<void>
   claimQuest: (def: QuestDef, periodKey: string) => Promise<void>
   addGoal: (params: { name: string; icon: string; color: string; targetCents: number; autoAllocateCents?: number }) => Promise<void>
@@ -574,6 +576,25 @@ export const useAppStore = create<AppState>((set, get) => {
           juice,
         )
         applyBadges(data, juice, nowISO())
+      }),
+
+    updateContribution: async (id, patch) =>
+      commit((data) => {
+        const contribution = data.contributions.find((c) => c.id === id)
+        if (!contribution) return false
+        if (patch.amountCents !== undefined && patch.amountCents <= 0) return false
+        Object.assign(contribution, patch)
+        // reconcile() re-derives the goal total, milestone latches and
+        // achievement from the contribution ledger.
+      }),
+
+    deleteContribution: async (id) =>
+      commit((data) => {
+        const before = data.contributions.length
+        data.contributions = data.contributions.filter((c) => c.id !== id)
+        if (data.contributions.length === before) return false
+        // Its +100 XP goes with it — the audit log matches the ledger.
+        data.xpEvents = data.xpEvents.filter((e) => e.refId !== id)
       }),
 
     sweepToGoal: async (goalId) =>

@@ -53,6 +53,7 @@ export function Dashboard() {
   const sweepToGoal = useAppStore((s) => s.sweepToGoal)
   const [sweepOpen, setSweepOpen] = useState(false)
   const [editing, setEditing] = useState<LedgerEntry | null>(null)
+  const [mathOpen, setMathOpen] = useState(false)
   const [recentVisible, setRecentVisible] = useState(RECENT_FEED_INITIAL)
 
   const today = todaySAST()
@@ -170,72 +171,102 @@ export function Dashboard() {
         />
         <Card
           glow={sts.status === 'winning' ? 'lime' : 'none'}
-          className="text-center py-6 relative overflow-hidden !border-transparent"
+          className="text-center pt-6 pb-5 relative overflow-hidden !border-transparent"
         >
-          <p className="text-xs font-bold uppercase tracking-[0.15em] text-ink-faint">
-            Fun money for today
-          </p>
-          <p className="text-[11px] text-ink-soft font-semibold mt-0.5 mb-1">
-            For treats &amp; fun — not rent or bills
-          </p>
-          <div className={`font-display font-extrabold text-[56px] leading-tight ${heroClass}`}>
-            <CountUp value={sts.dailyCents} format={(v) => formatZAR(v)} />
-          </div>
-          <div className="text-sm text-ink-soft font-semibold mt-1">
-            {sts.status === 'over' ? (
-              sts.cappedByCash ? (
-                info.leftOverCents < 0 ? (
-                  <p>
-                    <b className="text-coral">{formatRands(-info.leftOverCents)}</b> more went out
-                    than came in this month. Fun money is paused until money comes in 💪
-                  </p>
+          {/* iOS-style top sheen + ambient glow behind the number */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-16 -translate-x-1/2 w-56 h-24
+                       rounded-full bg-lime/15 blur-3xl"
+            style={{ opacity: sts.status === 'winning' ? 1 : 0.35 }}
+          />
+          <div className="relative">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink-faint">
+              Fun money for today
+            </p>
+            <p className="text-[11px] text-ink-soft font-semibold mt-0.5 mb-1">
+              For treats &amp; fun — not rent or bills
+            </p>
+            <div className={`font-display font-extrabold text-[56px] leading-tight ${heroClass}`}>
+              <CountUp value={sts.dailyCents} format={(v) => formatZAR(v)} />
+            </div>
+            <div className="text-sm text-ink-soft font-semibold mt-1">
+              {sts.status === 'over' ? (
+                sts.cappedByCash ? (
+                  info.leftOverCents < 0 ? (
+                    <p>
+                      <b className="text-coral">{formatRands(-info.leftOverCents)}</b> more went out
+                      than came in this month. Fun money is paused until money comes in 💪
+                    </p>
+                  ) : (
+                    <p>All your money is used up for now. Fun money is paused until money comes in 💪</p>
+                  )
                 ) : (
-                  <p>All your money is used up for now. Fun money is paused until money comes in 💪</p>
+                  <p>You used all your fun money this month. Spend less until pay day 💪</p>
                 )
               ) : (
-                <p>You used all your fun money this month. Spend less until pay day 💪</p>
-              )
-            ) : (
-              <>
-                <div className="flex items-stretch justify-center divide-x divide-edge mt-3">
-                  <HeroStat value={formatRands(sts.weekCents)} label="to spend this week" />
-                  <HeroStat
-                    value={formatRands(Math.max(0, sts.effectiveRemainingCents))}
-                    label="left till pay day"
-                  />
-                  <HeroStat
-                    value={String(info.daysRemaining)}
-                    label={info.daysRemaining === 1 ? 'day to pay day' : 'days to pay day'}
-                  />
-                </div>
-                {sts.cappedByCash && (
-                  <div className="mt-3 mx-1 flex items-start gap-2 text-left rounded-xl bg-ember/10 px-3 py-2.5">
-                    <span className="text-sm leading-none mt-0.5" aria-hidden>
-                      💡
-                    </span>
-                    <p className="text-[11px] font-bold text-ember leading-relaxed">
-                      Your plan allows{' '}
-                      <b className="text-ink">{formatRands(Math.max(0, sts.remainingCents))}</b>{' '}
-                      for fun, but your pocket has{' '}
-                      <b className="text-ink">
-                        {formatRands(Math.max(0, sts.effectiveRemainingCents))}
-                      </b>{' '}
-                      right now — so we count what's real{'\u00A0'}👍
-                    </p>
+                <>
+                  <div className="flex items-stretch justify-center divide-x divide-edge mt-3">
+                    <HeroStat value={formatRands(sts.weekCents)} label="to spend this week" />
+                    <HeroStat
+                      value={formatRands(Math.max(0, sts.effectiveRemainingCents))}
+                      label="left till pay day"
+                    />
+                    <HeroStat
+                      value={String(info.daysRemaining)}
+                      label={info.daysRemaining === 1 ? 'day to pay day' : 'days to pay day'}
+                    />
                   </div>
-                )}
-              </>
-            )}
+                  {sts.cappedByCash && (
+                    <span
+                      className="inline-block mt-3 px-3 py-1 rounded-full bg-ember/10 border border-ember/30
+                                 text-ember text-[10px] font-extrabold"
+                    >
+                      💡 Capped by real pocket money
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* month journey — level-progress style */}
+            <div className="mt-4 px-2">
+              <div className="relative h-2 rounded-full bg-bg-deep border border-edge/60">
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-violet to-aqua"
+                  style={{ width: `${Math.min(100, Math.round(((daysElapsed(today, info.cycle) + 1) / daysInCycle(info.cycle)) * 100))}%` }}
+                />
+              </div>
+              <div className="flex justify-between mt-1.5 text-[9px] font-extrabold uppercase tracking-wider text-ink-faint">
+                <span>Day {daysElapsed(today, info.cycle) + 1}</span>
+                <span>Pay day 🎉</span>
+              </div>
+            </div>
+
+            <div className="mt-3.5 flex items-center justify-center gap-2">
+              <button
+                onClick={() => setMathOpen(true)}
+                className="px-4 py-1.5 rounded-full text-[11px] font-display font-extrabold
+                           text-ink-soft bg-white/[0.04] border border-edge
+                           active:scale-95 transition-transform"
+              >
+                See how it's worked out ›
+              </button>
+              {canMarkNoSpend && (
+                <button
+                  onClick={() => void markNoSpendDay()}
+                  className="px-4 py-1.5 rounded-full text-[11px] font-display font-extrabold
+                             bg-lime/15 text-lime border border-lime/40 active:scale-95 transition-transform"
+                >
+                  🙅 No spending — +75 XP
+                </button>
+              )}
+            </div>
           </div>
-          {canMarkNoSpend && (
-            <button
-              onClick={() => void markNoSpendDay()}
-              className="mt-3 px-4 py-1.5 rounded-full text-xs font-display font-extrabold
-                         bg-lime/15 text-lime border border-lime/40 active:scale-95 transition-transform"
-            >
-              🙅 No spending today — +75 XP
-            </button>
-          )}
         </Card>
       </div>
 
@@ -366,16 +397,11 @@ export function Dashboard() {
               {section.entries.map((entry) => (
             <button
               key={entry.item.id}
-              onClick={() => {
-                if (entry.type === 'contribution') return
-                setEditing(entry)
-              }}
-              className={`text-left active:scale-[0.99] transition-transform ${
-                entry.type === 'contribution' ? 'cursor-default' : ''
-              }`}
+              onClick={() => setEditing(entry)}
+              className="text-left active:scale-[0.99] transition-transform"
               aria-label={
                 entry.type === 'contribution'
-                  ? `Savings to ${goalById.get(entry.item.goalId)?.name ?? 'goal'}`
+                  ? `Edit savings to ${goalById.get(entry.item.goalId)?.name ?? 'goal'}`
                   : `Edit ${entry.type}`
               }
             >
@@ -437,6 +463,74 @@ export function Dashboard() {
         </div>
       )}
 
+      {/* The maths behind the hero number — plan vs pocket, smaller one wins. */}
+      <Sheet open={mathOpen} onClose={() => setMathOpen(false)} title="How today's number is made">
+        <div className="flex flex-col gap-3 pb-2">
+          <div className="grid grid-cols-2 gap-3 items-stretch">
+            <MoneySide
+              title="📝 The plan"
+              rows={[
+                ['Fun plan', formatRands(info.allocated.want)],
+                ['Spent on fun', `− ${formatRands(info.spent.want)}`],
+              ]}
+              totalLabel="Plan still allows"
+              totalValue={formatRands(sts.remainingCents)}
+              totalTone="text-violet-soft"
+              winner={!sts.cappedByCash}
+            />
+            <MoneySide
+              title="👛 Your pocket"
+              rows={[
+                ['Money in', formatRands(info.incomeCents)],
+                ['All spending', `− ${formatRands(info.moneyOutCents)}`],
+                ['Put in savings', `− ${formatRands(info.savedCents)}`],
+              ]}
+              totalLabel="Really in your pocket"
+              totalValue={formatRands(info.leftOverCents)}
+              totalTone={info.leftOverCents < 0 ? 'text-coral' : 'text-aqua'}
+              winner={sts.cappedByCash}
+            />
+          </div>
+
+          {/* the division step */}
+          <div className="flex items-center justify-center gap-2 font-display font-extrabold">
+            <span className="text-ink text-base">
+              {formatRands(Math.max(0, sts.effectiveRemainingCents))}
+            </span>
+            <span className="text-ink-faint text-lg">÷</span>
+            <span className="px-2.5 py-1 rounded-full bg-bg-deep border border-edge text-xs text-ink-soft">
+              {info.daysRemaining} day{info.daysRemaining === 1 ? '' : 's'} to pay day
+            </span>
+          </div>
+
+          {/* the result */}
+          <div
+            className="rounded-[22px] p-[2px]"
+            style={{ background: 'linear-gradient(120deg,#7c3aed,#22d3ee,#a3e635)' }}
+          >
+            <div className="rounded-[20px] bg-card px-4 py-3.5 text-center">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-ink-faint">
+                Fun money for today
+              </p>
+              <p className="font-display font-extrabold text-3xl text-gradient-win leading-tight">
+                {formatZAR(sts.dailyCents)}
+              </p>
+              <p className="text-[11px] text-ink-soft font-semibold mt-0.5">
+                and <b className="text-ink">{formatRands(sts.weekCents)}</b> to spend this week
+              </p>
+            </div>
+          </div>
+
+          {sts.status === 'over' && (
+            <div className="rounded-xl bg-coral/10 px-3.5 py-2.5 text-[11px] font-bold text-coral leading-relaxed">
+              {sts.cappedByCash
+                ? 'More went out than came in — fun money is paused until money comes in 💪'
+                : 'The fun plan is used up — spend less until pay day 💪'}
+            </div>
+          )}
+        </div>
+      </Sheet>
+
       <EditEntrySheet entry={editing} onClose={() => setEditing(null)} />
 
       {/* Sweep sheet */}
@@ -479,6 +573,53 @@ function weekRangeLabel(start: string): string {
   const e = parseISO(end)
   if (s.m === e.m) return `${s.d}–${e.d} ${formatDateLong(end).split(' ')[1]}`
   return `${formatDateLong(start)} – ${formatDateLong(end)}`
+}
+
+/** One side of the plan-vs-pocket comparison; the winner gets the accent. */
+function MoneySide({
+  title,
+  rows,
+  totalLabel,
+  totalValue,
+  totalTone,
+  winner,
+}: {
+  title: string
+  rows: [string, string][]
+  totalLabel: string
+  totalValue: string
+  totalTone: string
+  winner: boolean
+}) {
+  return (
+    <div
+      className={`rounded-2xl border-2 p-3 flex flex-col ${
+        winner ? 'border-lime/50 bg-lime/[0.06]' : 'border-edge bg-bg-deep opacity-90'
+      }`}
+    >
+      <p className="text-[10px] font-extrabold uppercase tracking-widest text-ink-faint">{title}</p>
+      <div className="mt-2 flex flex-col gap-1">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-center justify-between gap-1 text-[10px] font-bold">
+            <span className="text-ink-faint">{label}</span>
+            <span className="text-ink-soft font-display whitespace-nowrap">{value}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-auto pt-2.5">
+        <p className={`font-display font-extrabold text-lg leading-none ${totalTone}`}>{totalValue}</p>
+        <p className="text-[10px] text-ink-faint font-bold leading-tight mt-1">{totalLabel}</p>
+        {winner && (
+          <span
+            className="inline-block mt-1.5 px-2 py-0.5 rounded-full bg-lime/15 border border-lime/40
+                       text-lime text-[9px] font-extrabold uppercase tracking-wider"
+          >
+            ✓ we use this
+          </span>
+        )}
+      </div>
+    </div>
+  )
 }
 
 /** One small self-explaining number under the hero, e.g. "R 2 692 · to spend this week". */
