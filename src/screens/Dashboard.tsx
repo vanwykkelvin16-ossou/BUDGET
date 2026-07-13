@@ -430,51 +430,77 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* The maths behind the hero number, spelled out step by step. */}
+      {/* The maths behind the hero number — plan vs pocket, smaller one wins. */}
       <Sheet open={mathOpen} onClose={() => setMathOpen(false)} title="How today's number is made">
-        <div className="flex flex-col pb-2">
-          <MathRow label="Your fun plan this month" value={formatRands(info.allocated.want)} />
-          <MathRow label="Fun spending so far" value={`− ${formatRands(info.spent.want)}`} />
-          <MathRow label="Plan still allows" value={formatRands(sts.remainingCents)} strong divider />
-          <MathRow label="Money in" value={formatRands(info.incomeCents)} />
-          <MathRow label="All spending" value={`− ${formatRands(info.moneyOutCents)}`} />
-          <MathRow label="Put in savings" value={`− ${formatRands(info.savedCents)}`} />
-          <MathRow
-            label="Really in your pocket"
-            value={formatRands(info.leftOverCents)}
-            tone={info.leftOverCents < 0 ? 'text-coral' : undefined}
-            strong
-            divider
-          />
-          <MathRow
-            label={`We use the smaller one (${sts.cappedByCash ? 'your pocket' : 'the plan'})`}
-            value={formatRands(Math.max(0, sts.effectiveRemainingCents))}
-            strong
-          />
-          <MathRow label="Days to pay day" value={`÷ ${info.daysRemaining}`} />
-          <div className="flex items-center justify-between py-2.5 mt-1 rounded-2xl bg-bg-deep px-3">
-            <span className="font-display font-extrabold text-sm">Fun money for today</span>
-            <span className="font-display font-extrabold text-lg text-gradient-win">
-              {formatZAR(sts.dailyCents)}
+        <div className="flex flex-col gap-3 pb-2">
+          <div className="grid grid-cols-2 gap-3 items-stretch">
+            <MoneySide
+              title="📝 The plan"
+              rows={[
+                ['Fun plan', formatRands(info.allocated.want)],
+                ['Spent on fun', `− ${formatRands(info.spent.want)}`],
+              ]}
+              totalLabel="Plan still allows"
+              totalValue={formatRands(sts.remainingCents)}
+              totalTone="text-violet-soft"
+              winner={!sts.cappedByCash}
+            />
+            <MoneySide
+              title="👛 Your pocket"
+              rows={[
+                ['Money in', formatRands(info.incomeCents)],
+                ['All spending', `− ${formatRands(info.moneyOutCents)}`],
+                ['Put in savings', `− ${formatRands(info.savedCents)}`],
+              ]}
+              totalLabel="Really in your pocket"
+              totalValue={formatRands(info.leftOverCents)}
+              totalTone={info.leftOverCents < 0 ? 'text-coral' : 'text-aqua'}
+              winner={sts.cappedByCash}
+            />
+          </div>
+
+          {/* the division step */}
+          <div className="flex items-center justify-center gap-2 font-display font-extrabold">
+            <span className="text-ink text-base">
+              {formatRands(Math.max(0, sts.effectiveRemainingCents))}
+            </span>
+            <span className="text-ink-faint text-lg">÷</span>
+            <span className="px-2.5 py-1 rounded-full bg-bg-deep border border-edge text-xs text-ink-soft">
+              {info.daysRemaining} day{info.daysRemaining === 1 ? '' : 's'} to pay day
             </span>
           </div>
-          <p className="text-xs text-ink-soft font-semibold mt-3">
-            This week you can spend <b>{formatRands(sts.weekCents)}</b> — today's number times the
-            days left (up to 7).
-          </p>
+
+          {/* the result */}
+          <div
+            className="rounded-[22px] p-[2px]"
+            style={{ background: 'linear-gradient(120deg,#7c3aed,#22d3ee,#a3e635)' }}
+          >
+            <div className="rounded-[20px] bg-card px-4 py-3.5 text-center">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-ink-faint">
+                Fun money for today
+              </p>
+              <p className="font-display font-extrabold text-3xl text-gradient-win leading-tight">
+                {formatZAR(sts.dailyCents)}
+              </p>
+              <p className="text-[11px] text-ink-soft font-semibold mt-0.5">
+                and <b className="text-ink">{formatRands(sts.weekCents)}</b> to spend this week
+              </p>
+            </div>
+          </div>
+
           {sts.cappedByCash && sts.status !== 'over' && (
-            <p className="text-xs font-bold text-ember mt-2 leading-relaxed">
+            <div className="rounded-xl bg-ember/10 px-3.5 py-2.5 text-[11px] font-bold text-ember leading-relaxed">
               💡 Your plan allows {formatRands(Math.max(0, sts.remainingCents))} for fun, but your
               pocket has {formatRands(Math.max(0, sts.effectiveRemainingCents))} right now — so we
               count what's real 👍
-            </p>
+            </div>
           )}
           {sts.status === 'over' && (
-            <p className="text-xs font-bold text-coral mt-2 leading-relaxed">
+            <div className="rounded-xl bg-coral/10 px-3.5 py-2.5 text-[11px] font-bold text-coral leading-relaxed">
               {sts.cappedByCash
                 ? 'More went out than came in — fun money is paused until money comes in 💪'
                 : 'The fun plan is used up — spend less until pay day 💪'}
-            </p>
+            </div>
           )}
         </div>
       </Sheet>
@@ -523,34 +549,49 @@ function weekRangeLabel(start: string): string {
   return `${formatDateLong(start)} – ${formatDateLong(end)}`
 }
 
-/** One line of the fun-money maths breakdown. */
-function MathRow({
-  label,
-  value,
-  strong = false,
-  divider = false,
-  tone,
+/** One side of the plan-vs-pocket comparison; the winner gets the accent. */
+function MoneySide({
+  title,
+  rows,
+  totalLabel,
+  totalValue,
+  totalTone,
+  winner,
 }: {
-  label: string
-  value: string
-  strong?: boolean
-  divider?: boolean
-  tone?: string
+  title: string
+  rows: [string, string][]
+  totalLabel: string
+  totalValue: string
+  totalTone: string
+  winner: boolean
 }) {
   return (
     <div
-      className={`flex items-center justify-between py-1.5 ${
-        divider ? 'border-b border-edge pb-2.5 mb-2' : ''
+      className={`rounded-2xl border-2 p-3 flex flex-col ${
+        winner ? 'border-lime/50 bg-lime/[0.06]' : 'border-edge bg-bg-deep opacity-90'
       }`}
     >
-      <span className={`text-xs ${strong ? 'font-extrabold text-ink' : 'font-bold text-ink-faint'}`}>
-        {label}
-      </span>
-      <span
-        className={`font-display font-extrabold text-sm ${tone ?? (strong ? 'text-ink' : 'text-ink-soft')}`}
-      >
-        {value}
-      </span>
+      <p className="text-[10px] font-extrabold uppercase tracking-widest text-ink-faint">{title}</p>
+      <div className="mt-2 flex flex-col gap-1">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-center justify-between gap-1 text-[10px] font-bold">
+            <span className="text-ink-faint">{label}</span>
+            <span className="text-ink-soft font-display whitespace-nowrap">{value}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-auto pt-2.5">
+        <p className={`font-display font-extrabold text-lg leading-none ${totalTone}`}>{totalValue}</p>
+        <p className="text-[10px] text-ink-faint font-bold leading-tight mt-1">{totalLabel}</p>
+        {winner && (
+          <span
+            className="inline-block mt-1.5 px-2 py-0.5 rounded-full bg-lime/15 border border-lime/40
+                       text-lime text-[9px] font-extrabold uppercase tracking-wider"
+          >
+            ✓ we use this
+          </span>
+        )}
+      </div>
     </div>
   )
 }
