@@ -21,10 +21,14 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['randy-logo.png', 'icon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
+        id: './',
         name: 'PennyPlay',
         short_name: 'PennyPlay',
         description:
           'A playful, game-flavoured personal budgeting app for ZAR — safe-to-spend, streaks, quests and savings goals.',
+        lang: 'en-ZA',
+        dir: 'ltr',
+        categories: ['finance', 'lifestyle'],
         theme_color: '#1A1033',
         background_color: '#1A1033',
         display: 'standalone',
