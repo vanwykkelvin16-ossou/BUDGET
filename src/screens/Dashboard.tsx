@@ -210,11 +210,23 @@ export function Dashboard() {
                   />
                 </div>
                 {sts.cappedByCash && (
-                  <p className="text-[11px] text-ember mt-2">
-                    Your plan says {formatRands(Math.max(0, sts.remainingCents))}, but only{' '}
-                    {formatRands(Math.max(0, sts.effectiveRemainingCents))} is left — so that's
-                    your number.
-                  </p>
+                  <div
+                    className="mt-3 mx-1 flex items-start gap-2.5 text-left rounded-2xl
+                               bg-ember/10 border border-ember/30 px-3.5 py-3"
+                  >
+                    <span className="text-lg leading-none mt-0.5" aria-hidden>
+                      💡
+                    </span>
+                    <p className="text-[11px] font-bold text-ember leading-relaxed">
+                      Your plan allows{' '}
+                      <b className="text-ink">{formatRands(Math.max(0, sts.remainingCents))}</b>{' '}
+                      for fun, but your pocket has{' '}
+                      <b className="text-ink">
+                        {formatRands(Math.max(0, sts.effectiveRemainingCents))}
+                      </b>{' '}
+                      right now — so we count what's real 👍
+                    </p>
+                  </div>
                 )}
               </>
             )}
@@ -436,7 +448,7 @@ export function Dashboard() {
             </p>
             {sortedGoals.length === 0 && (
               <p className="text-sm text-ink-faint">
-                Make a savings goal first on the Goals tab 🏆
+                Make a savings goal first on the Savings tab 🏆
               </p>
             )}
             {sortedGoals.map((goal) => (

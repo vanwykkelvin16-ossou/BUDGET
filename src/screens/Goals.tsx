@@ -31,7 +31,7 @@ export function Goals() {
   return (
     <Screen>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="font-display font-extrabold text-2xl">Goals 🏆</h1>
+        <h1 className="font-display font-extrabold text-2xl">Savings 🏆</h1>
         <Button3D size="sm" onClick={() => setAddOpen(true)}>
           + New goal
         </Button3D>
