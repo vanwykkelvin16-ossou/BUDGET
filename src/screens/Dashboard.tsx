@@ -361,16 +361,16 @@ export function Dashboard() {
       <div className="grid grid-cols-2 gap-3 mb-5">
         <Link
           to="/months"
-          className="block text-center py-2.5 rounded-2xl border border-edge
-                     font-display font-extrabold text-xs text-ink-soft
+          className="block text-center py-2.5 rounded-2xl border border-accent/30 bg-accent/10
+                     font-display font-extrabold text-xs text-accent-ink
                      active:scale-[0.98] transition-transform"
         >
           📆 Past months
         </Link>
         <Link
           to="/wealth"
-          className="block text-center py-2.5 rounded-2xl border border-edge
-                     font-display font-extrabold text-xs text-ink-soft
+          className="block text-center py-2.5 rounded-2xl border border-accent/30 bg-accent/10
+                     font-display font-extrabold text-xs text-accent-ink
                      active:scale-[0.98] transition-transform"
         >
           💎 All my money
