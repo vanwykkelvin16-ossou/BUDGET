@@ -20,6 +20,7 @@ import { Wealth } from './screens/Wealth'
 import { TrophyCabinet } from './screens/TrophyCabinet'
 import { SeasonRecap } from './screens/SeasonRecap'
 import { Settings } from './screens/Settings'
+import { Privacy } from './screens/Privacy'
 
 export function App() {
   const loaded = useAppStore((s) => s.loaded)
@@ -94,6 +95,8 @@ export function App() {
     return (
       <>
         <Routes>
+          {/* Store reviewers open the policy URL cold — no profile needed. */}
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="*" element={<Onboarding />} />
         </Routes>
         <JuiceHost />
@@ -117,6 +120,7 @@ export function App() {
         <Route path="/months" element={<Months />} />
         <Route path="/wealth" element={<Wealth />} />
         <Route path="/recap" element={<SeasonRecap />} />
+        <Route path="/privacy" element={<Privacy />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {!fullScreen && <TabBar />}

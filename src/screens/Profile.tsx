@@ -295,7 +295,10 @@ export function Profile() {
       </Button3D>
       <p className="text-center text-[10px] text-ink-faint font-bold mt-4">
         PennyPlay · your money stays on this device{' '}
-        {profile.isDemo ? '· demo data' : ''}
+        {profile.isDemo ? '· demo data ' : ''}·{' '}
+        <Link to="/privacy" className="underline">
+          Privacy policy
+        </Link>
       </p>
 
       {/* Coming-soon sheet */}
