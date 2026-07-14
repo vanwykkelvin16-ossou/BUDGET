@@ -143,7 +143,9 @@ export function Plus() {
   }
 
   return (
-    <Screen withTabBar={false}>
+    // Tab bar stays visible on /plus (see App.tsx), so keep the matching
+    // bottom padding — otherwise the share + perks cards sit under the FAB.
+    <Screen>
       <header className="flex items-center gap-3 mb-4">
         <Link
           to="/profile"
@@ -318,7 +320,7 @@ export function Plus() {
       </div>
 
       {/* What you get */}
-      <Card className="mb-8">
+      <Card className="mb-4">
         <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-ink-faint mb-3">
           Everything, unlocked
         </p>
