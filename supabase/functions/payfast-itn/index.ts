@@ -76,16 +76,28 @@ Deno.serve(async (req) => {
     .eq('user_id', userId)
     .maybeSingle()
 
-  // The R50 reward: first payment only, and only with a real signed-up
-  // referral on record.
+  // The R50 reward: first payment only. Allowed when the payer invited a
+  // friend (referrer) OR entered someone's code / arrived via a share link
+  // (referred).
   if (claimsDiscount) {
     if (existing) return new Response('discount only applies to the first payment', { status: 400 })
-    const { count } = await supabase
+    const { count: asReferrer } = await supabase
       .from('referrals')
       .select('referred_user_id', { count: 'exact', head: true })
       .eq('referrer_user_id', userId)
-    if (!count || count < 1) {
-      return new Response('no signed-up referral on record', { status: 400 })
+    const { count: asReferred } = await supabase
+      .from('referrals')
+      .select('referred_user_id', { count: 'exact', head: true })
+      .eq('referred_user_id', userId)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('referred_by')
+      .eq('id', userId)
+      .maybeSingle()
+    const eligible =
+      (asReferrer ?? 0) > 0 || (asReferred ?? 0) > 0 || Boolean(profile?.referred_by)
+    if (!eligible) {
+      return new Response('no referral discount on record', { status: 400 })
     }
   }
 

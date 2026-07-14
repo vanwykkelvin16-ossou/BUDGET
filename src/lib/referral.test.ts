@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   FIRST_YEAR_PRICE_CENTS,
+  normalizeReferralCode,
   plusPriceCents,
   REFERRAL_DISCOUNT_CENTS,
   shareLink,
@@ -15,6 +16,13 @@ describe('referral pricing', () => {
     expect(plusPriceCents({ ...base, unlocked: true, isFirstPayment: false })).toBe(20_000)
     expect(plusPriceCents({ ...base, unlocked: false, isFirstPayment: true })).toBe(20_000)
     expect(PLUS_PRICE_CENTS - REFERRAL_DISCOUNT_CENTS).toBe(FIRST_YEAR_PRICE_CENTS)
+  })
+})
+
+describe('normalizeReferralCode', () => {
+  it('uppercases and strips junk', () => {
+    expect(normalizeReferralCode('  ab-12 cd  ')).toBe('AB12CD')
+    expect(normalizeReferralCode('too-long-code-here')).toHaveLength(12)
   })
 })
 

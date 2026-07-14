@@ -8,34 +8,32 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAppStore } from '../state/appStore'
-import { getSupabaseClient } from '../lib/supabaseClient'
 import {
-  clampToOneYear,
   daysLeft,
   loadMembership,
   membershipStatus,
   payfastConfig,
   PLUS_DAYS,
   PLUS_PRICE_CENTS,
-  saveMembership,
   type Membership,
 } from '../lib/membership'
 import { payForYear } from '../lib/plusCheckout'
 import {
-  adoptServerReferralCode,
   hasShared,
   myReferralCode,
   plusPriceCents,
   rewardUnlocked,
-  saveRewardUnlocked,
   shareApp,
+  syncReferralRewards,
 } from '../lib/referral'
+import { hydrateMembershipFromServer } from '../lib/membershipSync'
 import { formatDateLong, todaySAST } from '../lib/dates'
 import { formatZAR } from '../lib/money'
 import { Screen } from '../components/layout/Screen'
 import { Card } from '../components/ui/Card'
 import { Button3D } from '../components/ui/Button3D'
 import { Randy } from '../components/ui/Randy'
+import { ReferralCodeInput } from '../components/ReferralCodeInput'
 
 const PERKS: string[] = [
   'Fun money that always matches your real cash',
@@ -84,46 +82,24 @@ export function Plus() {
     window.setTimeout(() => setShareNote(null), 3000)
   }
 
-  // Supabase mode: the server-verified membership wins over local state.
+  // Supabase mode: membership + referral rewards come from the server.
   useEffect(() => {
-    const supabase = getSupabaseClient()
-    if (!supabase) return
     void (async () => {
-      const { data: auth } = await supabase.auth.getUser()
-      if (!auth.user) return
-      const { data } = await supabase
-        .from('memberships')
-        .select('paid_until, payment_ref, amount_cents, activated_at')
-        .eq('user_id', auth.user.id)
-        .maybeSingle()
-      if (data?.paid_until) {
-        const server: Membership = clampToOneYear({
-          paidUntil: data.paid_until as string,
-          paymentRef: (data.payment_ref as string) ?? 'payfast',
-          amountCents: (data.amount_cents as number) ?? PLUS_PRICE_CENTS,
-          activatedAt: (data.activated_at as string) ?? '',
-        })
-        saveMembership(server)
-        setMembership(server)
-      }
-      // Share links must use the account's code, and a signed-up friend
-      // unlocks the R50 — both server truths.
-      const { data: me } = await supabase
-        .from('profiles')
-        .select('referral_code')
-        .eq('id', auth.user.id)
-        .maybeSingle()
-      if (me?.referral_code) {
-        adoptServerReferralCode(me.referral_code as string)
-        setRefCode(me.referral_code as string)
-      }
-      const { count } = await supabase
-        .from('referrals')
-        .select('referred_user_id', { count: 'exact', head: true })
-        .eq('referrer_user_id', auth.user.id)
-      if ((count ?? 0) > 0) {
-        saveRewardUnlocked(true)
-        setReward(true)
+      const hydrated = await hydrateMembershipFromServer()
+      if (hydrated) setMembership(hydrated)
+      await syncReferralRewards()
+      setReward(rewardUnlocked())
+      setRefCode(myReferralCode())
+
+      // After PayFast return, poll briefly until ITN writes the membership.
+      if (!justPaid) return
+      for (let i = 0; i < 8; i++) {
+        await new Promise((r) => window.setTimeout(r, 1500))
+        const again = await hydrateMembershipFromServer()
+        if (again && membershipStatus(again) === 'active') {
+          setMembership(again)
+          return
+        }
       }
     })()
   }, [justPaid])
@@ -180,14 +156,14 @@ export function Plus() {
             </p>
             <p className="font-display font-extrabold leading-tight mt-1">
               <span className="text-gradient-gold animate-shimmer text-5xl">
-                {formatZAR(PLUS_PRICE_CENTS, { showCents: false })}
+                {formatZAR(priceCents, { showCents: false })}
               </span>
               <span className="text-base text-ink-soft"> / year</span>
             </p>
-            {reward && isFirstPayment && (
+            {reward && isFirstPayment && priceCents < PLUS_PRICE_CENTS && (
               <p className="text-xs font-extrabold text-lime mt-1">
-                🎁 {formatZAR(priceCents, { showCents: false })} for your first year — friend
-                reward applied
+                Was {formatZAR(PLUS_PRICE_CENTS, { showCents: false })} — R50 referral discount
+                applied
               </p>
             )}
 
@@ -248,10 +224,16 @@ export function Plus() {
       {status === 'active' ? (
         // One year at a time — no stacking. Renewal appears when it lapses.
         <p className="text-center text-sm text-ink-soft font-semibold py-2">
-          🎉 You're all set for the year. Renewal opens here when your year is up.
+          You're all set for the year. Renewal opens here when your year is up.
         </p>
       ) : (
         <>
+          <Card className="mb-4">
+            <ReferralCodeInput
+              disabled={busy || (reward && isFirstPayment)}
+              onApplied={() => setReward(true)}
+            />
+          </Card>
           <Button3D full size="lg" variant="gold" disabled={busy} onClick={() => void pay()}>
             {status === 'expired'
               ? `Renew — ${formatZAR(priceCents, { showCents: false })} for a year`
@@ -259,7 +241,7 @@ export function Plus() {
           </Button3D>
           <p className="text-center text-[10px] text-ink-faint font-bold mt-3 pb-6">
             {config
-              ? `Secure checkout by PayFast${config.sandbox ? ' (sandbox)' : ''}. No auto-renewal — you choose when to pay again.`
+              ? `Secure checkout by PayFast${config.sandbox ? ' (sandbox)' : ''}. One payment · 12 months · no auto-renewal.`
               : 'Test mode: payments aren’t connected yet, so this activates a trial year on this device.'}
           </p>
         </>

@@ -12,6 +12,8 @@ import { TabBar } from './components/layout/TabBar'
 import { JuiceHost } from './components/juice/JuiceHost'
 import { PlusGate } from './components/PlusGate'
 import { Randy } from './components/ui/Randy'
+import { hydrateMembershipFromServer } from './lib/membershipSync'
+import { syncReferralRewards } from './lib/referral'
 
 import { Auth } from './screens/Auth'
 import { Onboarding } from './screens/Onboarding'
@@ -40,6 +42,14 @@ export function App() {
   useEffect(() => {
     void init()
   }, [init])
+
+  // After auth/onboarding: mirror Plus membership + referral unlocks from
+  // Supabase so the 35s gate and /plus screen see the server truth.
+  useEffect(() => {
+    if (!loaded || !profile || profile.isDemo) return
+    void hydrateMembershipFromServer()
+    void syncReferralRewards()
+  }, [loaded, profile])
 
   // Every navigation lands at the top of the new screen — no inherited
   // scroll position from the page you came from.
