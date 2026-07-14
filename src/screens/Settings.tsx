@@ -510,7 +510,7 @@ function RecurringCard() {
   const [kind, setKind] = useState<RecurringItem['kind']>('expense')
   const [name, setName] = useState('')
   const [amount, setAmount] = useState('')
-  const [day, setDay] = useState(1)
+  const [day, setDay] = useState('1')
   const [categoryId, setCategoryId] = useState('cat-housing')
   const [source, setSource] = useState<IncomeSource>('salary')
 
@@ -518,12 +518,13 @@ function RecurringCard() {
 
   async function save() {
     const cents = randsToCents(amount)
-    if (!name.trim() || cents <= 0) return
+    const dayOfMonth = Number(day)
+    if (!name.trim() || cents <= 0 || dayOfMonth < 1 || dayOfMonth > 31) return
     await addRecurring({
       kind,
       name,
       amountCents: cents,
-      dayOfMonth: day,
+      dayOfMonth,
       categoryId: kind === 'expense' ? categoryId : undefined,
       source: kind === 'income' ? source : undefined,
     })
@@ -621,11 +622,10 @@ function RecurringCard() {
             <label className="w-28">
               <p className="text-xs font-bold uppercase tracking-widest text-ink-faint mb-1">Day</p>
               <input
-                type="number"
-                min={1}
-                max={31}
                 value={day}
-                onChange={(e) => setDay(Number(e.target.value))}
+                onChange={(e) => setDay(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                inputMode="numeric"
+                placeholder="1"
                 className="w-full px-4 py-3 rounded-2xl bg-bg-deep border border-edge outline-none
                            font-display font-extrabold focus:border-accent"
               />
