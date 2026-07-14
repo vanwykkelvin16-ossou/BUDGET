@@ -1,8 +1,8 @@
 /**
- * PennyPlay Plus — R200 for a full year, billed yearly. One screen: what
- * you get, what it costs, current status, and the pay button. Real
- * checkout via PayFast when merchant keys are configured; otherwise a
- * clearly-labelled test mode so the flow works end to end.
+ * PennyPlay Plus — R200 / year, auto-renews yearly. One screen: what you
+ * get, what it costs, current status, and the subscribe button. Real
+ * PayFast subscription checkout when merchant keys are configured;
+ * otherwise a clearly-labelled test mode so the flow works end to end.
  */
 
 import { useEffect, useState } from 'react'
@@ -169,12 +169,12 @@ export function Plus() {
 
             <div className="flex items-stretch justify-center divide-x divide-edge mt-4">
               <div className="flex-1 px-1.5 flex flex-col items-center gap-1">
-                <span className="font-display font-extrabold text-[13px] text-ink leading-none">One</span>
-                <span className="text-[9.5px] text-ink-faint font-bold leading-tight">payment</span>
-              </div>
-              <div className="flex-1 px-1.5 flex flex-col items-center gap-1">
                 <span className="font-display font-extrabold text-[13px] text-ink leading-none">Yearly</span>
                 <span className="text-[9.5px] text-ink-faint font-bold leading-tight">billing</span>
+              </div>
+              <div className="flex-1 px-1.5 flex flex-col items-center gap-1">
+                <span className="font-display font-extrabold text-[13px] text-ink leading-none">Auto</span>
+                <span className="text-[9.5px] text-ink-faint font-bold leading-tight">renews</span>
               </div>
               <div className="flex-1 px-1.5 flex flex-col items-center gap-1">
                 <span className="font-display font-extrabold text-[13px] text-ink leading-none">12 months</span>
@@ -196,7 +196,7 @@ export function Plus() {
                 </div>
                 <div className="flex justify-between mt-1.5 text-[9px] font-extrabold uppercase tracking-wider text-ink-faint">
                   <span>Your year</span>
-                  <span>Renews by choice 🎉</span>
+                  <span>Auto-renews yearly</span>
                 </div>
               </div>
             )}
@@ -205,7 +205,7 @@ export function Plus() {
                 className="inline-block mt-4 px-3 py-1 rounded-full bg-coral/15 border border-coral/40
                            text-coral text-xs font-extrabold"
               >
-                Your year is up — renew to keep full access
+                Membership lapsed — resubscribe to restore full access
               </p>
             )}
             {justPaid && status !== 'active' && (
@@ -222,9 +222,9 @@ export function Plus() {
       </div>
 
       {status === 'active' ? (
-        // One year at a time — no stacking. Renewal appears when it lapses.
         <p className="text-center text-sm text-ink-soft font-semibold py-2">
-          You're all set for the year. Renewal opens here when your year is up.
+          You&apos;re all set. Your subscription auto-renews yearly
+          {membership ? ` around ${formatDateLong(membership.paidUntil)}` : ''}.
         </p>
       ) : (
         <>
@@ -236,12 +236,12 @@ export function Plus() {
           </Card>
           <Button3D full size="lg" variant="gold" disabled={busy} onClick={() => void pay()}>
             {status === 'expired'
-              ? `Renew — ${formatZAR(priceCents, { showCents: false })} for a year`
-              : `Pay ${formatZAR(priceCents, { showCents: false })} for a year`}
+              ? `Resubscribe — ${formatZAR(priceCents, { showCents: false })}/year`
+              : `Subscribe — ${formatZAR(priceCents, { showCents: false })}/year`}
           </Button3D>
           <p className="text-center text-[10px] text-ink-faint font-bold mt-3 pb-6">
             {config
-              ? `Secure checkout by PayFast${config.sandbox ? ' (sandbox)' : ''}. One payment · 12 months · no auto-renewal.`
+              ? `Secure checkout by PayFast${config.sandbox ? ' (sandbox)' : ''}. Yearly · auto-renews · cancel anytime.`
               : 'Test mode: payments aren’t connected yet, so this activates a trial year on this device.'}
           </p>
         </>

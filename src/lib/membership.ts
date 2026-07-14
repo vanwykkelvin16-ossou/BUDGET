@@ -1,14 +1,13 @@
 /**
- * PennyPlay Plus — the yearly membership. One payment of R200 unlocks the
- * full app for 12 months, billed yearly (no auto-debit surprises: when the
- * year is up, you pay again).
+ * PennyPlay Plus — the yearly membership. R200 unlocks the full app for
+ * 12 months and auto-renews each year via PayFast recurring billing.
  *
  * Payments run through PayFast (South Africa). With merchant env vars set
- * the Pay button redirects to real checkout and the payfast-itn edge
- * function activates the membership server-side; without them the flow
- * runs in clearly-labelled test mode so it can be tried end to end.
- * Membership state lives in Supabase when connected, and in localStorage
- * in on-device mode.
+ * the Pay button redirects to a yearly subscription checkout and the
+ * payfast-itn edge function activates/extends the membership server-side;
+ * without them the flow runs in clearly-labelled test mode so it can be
+ * tried end to end. Membership state lives in Supabase when connected,
+ * and in localStorage in on-device mode.
  */
 
 import { addDays, todaySAST } from './dates'
@@ -97,7 +96,7 @@ export function payfastConfig(): PayfastConfig | null {
   }
 }
 
-/** Build the PayFast checkout URL for one year of Plus. */
+/** Build the PayFast yearly auto-renew subscription checkout URL. */
 export function payfastCheckoutUrl(params: {
   config: PayfastConfig
   origin: string
@@ -105,28 +104,36 @@ export function payfastCheckoutUrl(params: {
   name?: string
   /** Passed back via ITN so the edge function knows whose year to activate. */
   userId?: string
-  /** Defaults to the full R200; R150 when the referral reward applies. */
+  /** Defaults to the full R200; R150 when the referral reward applies (first year only). */
   amountCents?: number
   /** Marks the ITN as a referral-discounted first payment for validation. */
   referralDiscount?: boolean
 }): string {
   const { config, origin } = params
   const host = config.sandbox ? 'sandbox.payfast.co.za' : 'www.payfast.co.za'
+  const firstAmount = ((params.amountCents ?? PLUS_PRICE_CENTS) / 100).toFixed(2)
+  // Renewals are always full price — the R50 referral cut is first year only.
+  const renewAmount = (PLUS_PRICE_CENTS / 100).toFixed(2)
   const query = new URLSearchParams({
     merchant_id: config.merchantId,
     merchant_key: config.merchantKey,
     return_url: `${origin}/plus?paid=1`,
     cancel_url: `${origin}/plus?cancelled=1`,
-    amount: ((params.amountCents ?? PLUS_PRICE_CENTS) / 100).toFixed(2),
-    item_name: 'PennyPlay Plus — 1 year',
-    item_description: 'Full access to PennyPlay for 12 months, billed yearly.',
+    amount: firstAmount,
+    item_name: 'PennyPlay Plus — yearly',
+    item_description: 'Full access to PennyPlay. Billed yearly and auto-renews.',
+    // PayFast recurring billing: charge again every year until cancelled.
+    subscription_type: '1',
+    recurring_amount: renewAmount,
+    frequency: '6', // annual
+    cycles: '0', // indefinite
   })
   if (params.email) query.set('email_address', params.email)
   if (params.name) query.set('name_first', params.name)
   if (params.userId) query.set('custom_str1', params.userId)
   if (params.referralDiscount) query.set('custom_str2', 'ref50')
   // Server-side confirmation: PayFast posts the ITN here and the edge
-  // function writes the membership row.
+  // function writes the membership row (including each auto-renewal).
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
   if (supabaseUrl) query.set('notify_url', `${supabaseUrl}/functions/v1/payfast-itn`)
   return `https://${host}/eng/process?${query.toString()}`

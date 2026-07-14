@@ -1,11 +1,12 @@
 /**
  * PayFast ITN (Instant Transaction Notification) handler.
  *
- * PayFast POSTs here after a checkout. We verify the notification —
- * status, amount, signature (when a passphrase is set) and a server
- * postback to PayFast — then extend the payer's membership by a year.
- * Runs with the service role; the memberships table has no client-write
- * policies, so this function is the only writer.
+ * PayFast POSTs here after the first checkout and again on each yearly
+ * auto-renewal. We verify the notification — status, amount, signature
+ * (when a passphrase is set) and a server postback to PayFast — then
+ * extend the payer's membership by a year. Runs with the service role;
+ * the memberships table has no client-write policies, so this function
+ * is the only writer.
  *
  * Deploy:  supabase functions deploy payfast-itn --no-verify-jwt
  * Env:     PAYFAST_PASSPHRASE (optional but recommended)
@@ -27,12 +28,13 @@ Deno.serve(async (req) => {
   const data: Record<string, string> = {}
   for (const [k, v] of params) data[k] = v
 
-  // 1) Status + amount must match the offer. A referral-discounted first
-  //    payment (R150) is only accepted after checking the referral below.
+  // 1) Status + amount must match the offer.
+  //    First year may be R150 (referral). Auto-renewals charge R200.
   if (data.payment_status !== 'COMPLETE') return new Response('ignored', { status: 200 })
   const claimsDiscount = data.custom_str2 === 'ref50'
-  const expected = Number.parseFloat(claimsDiscount ? REFERRAL_PRICE : PLUS_PRICE)
-  if (Number.parseFloat(data.amount_gross ?? '0') < expected) {
+  const paid = Number.parseFloat(data.amount_gross ?? '0')
+  const minAccept = Number.parseFloat(claimsDiscount ? REFERRAL_PRICE : PLUS_PRICE)
+  if (paid < minAccept) {
     return new Response('amount mismatch', { status: 400 })
   }
 
@@ -76,11 +78,9 @@ Deno.serve(async (req) => {
     .eq('user_id', userId)
     .maybeSingle()
 
-  // The R50 reward: first payment only. Allowed when the payer invited a
-  // friend (referrer) OR entered someone's code / arrived via a share link
-  // (referred).
-  if (claimsDiscount) {
-    if (existing) return new Response('discount only applies to the first payment', { status: 400 })
+  // The R50 reward: first payment only. PayFast may still echo custom_str2
+  // on later auto-renewals — those must be full price and skip referral checks.
+  if (claimsDiscount && !existing) {
     const { count: asReferrer } = await supabase
       .from('referrals')
       .select('referred_user_id', { count: 'exact', head: true })
@@ -99,6 +99,8 @@ Deno.serve(async (req) => {
     if (!eligible) {
       return new Response('no referral discount on record', { status: 400 })
     }
+  } else if (claimsDiscount && existing && paid < Number.parseFloat(PLUS_PRICE)) {
+    return new Response('renewals require full price', { status: 400 })
   }
 
   // One year at a time: never further than 365 days from today.

@@ -200,7 +200,7 @@ export function PlusGate() {
                 Your free look around is over
               </h2>
               <p className="text-sm text-ink-soft font-semibold mt-2 max-w-[34ch]">
-                One payment unlocks the full app for a year — billed yearly, no auto-renewal.
+                Unlock the full app — billed yearly, and the amount auto-renews each year.
               </p>
 
               <p className="font-display font-extrabold leading-tight mt-5">
@@ -239,11 +239,11 @@ export function PlusGate() {
 
               <div className="w-full mt-6">
                 <Button3D full size="lg" variant="gold" disabled={busy} onClick={() => void subscribe()}>
-                  Unlock a year — {formatZAR(priceCents, { showCents: false })}
+                  Subscribe — {formatZAR(priceCents, { showCents: false })}/year
                 </Button3D>
               </div>
               <p className="text-[10px] text-ink-faint font-bold mt-3 pb-8">
-                One-time payment · covers 12 months · renew only when you choose
+                Yearly subscription · auto-renews · cancel anytime in PayFast
               </p>
             </div>
           </motion.div>

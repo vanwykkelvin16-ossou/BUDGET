@@ -1,8 +1,8 @@
 /**
  * One place that knows how to buy a year of Plus — used by the /plus
- * screen and the 35-second gate. Real PayFast checkout when merchant
- * keys exist (the browser leaves for the payment page); test-mode
- * activation otherwise.
+ * screen and the 35-second gate. Real PayFast yearly auto-renew
+ * subscription when merchant keys exist (the browser leaves for the
+ * payment page); test-mode activation otherwise.
  */
 
 import { getSupabaseClient } from './supabaseClient'
