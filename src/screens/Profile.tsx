@@ -26,6 +26,7 @@ import {
   showSystemNotification,
   type NotificationPrefs,
 } from '../lib/notifications'
+import { loadMembership, membershipStatus } from '../lib/membership'
 
 const PHASE2 = [
   { icon: '📄', title: 'Bank statement import', blurb: 'Drop a CSV, get everything categorised.' },
@@ -81,6 +82,7 @@ export function Profile() {
   const streak = displayStreak(profile, today)
   const unlocked = new Set(unlockedThemes(progress.level))
   const badgeCount = data.userBadges.length
+  const plusStatus = membershipStatus(loadMembership(), today)
 
   return (
     <Screen>
@@ -131,6 +133,34 @@ export function Profile() {
 
       {/* Links */}
       <div className="flex flex-col gap-2 mb-5">
+        <Link to="/plus">
+          <div
+            className="rounded-[24px] p-[2px]"
+            style={{ background: 'linear-gradient(120deg,#7c3aed,#22d3ee,#a3e635)' }}
+          >
+            <Card className="flex items-center justify-between py-3 !border-transparent">
+              <span className="font-display font-extrabold text-sm">
+                ⭐ PennyPlay Plus
+                <span
+                  className={`ml-2 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                    plusStatus === 'active'
+                      ? 'bg-lime/15 text-lime'
+                      : plusStatus === 'expired'
+                        ? 'bg-coral/15 text-coral'
+                        : 'bg-gold/15 text-gold'
+                  }`}
+                >
+                  {plusStatus === 'active'
+                    ? 'active'
+                    : plusStatus === 'expired'
+                      ? 'renew'
+                      : 'R200 / year'}
+                </span>
+              </span>
+              <span className="text-ink-faint">→</span>
+            </Card>
+          </div>
+        </Link>
         <Link to="/profile/trophies">
           <Card className="flex items-center justify-between py-3">
             <span className="font-display font-extrabold text-sm">

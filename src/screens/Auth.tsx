@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { useAppStore } from '../state/appStore'
 import { getSupabaseClient } from '../lib/supabaseClient'
+import { referredBy } from '../lib/referral'
 import { Screen } from '../components/layout/Screen'
 import { Button3D } from '../components/ui/Button3D'
 import { Card } from '../components/ui/Card'
@@ -16,11 +17,21 @@ export function Auth() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+  const [surname, setSurname] = useState('')
+  const [username, setUsername] = useState('')
+  const [phone, setPhone] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const supabase = getSupabaseClient()
   if (!supabase) return null
+
+  const identityComplete =
+    name.trim().length > 0 &&
+    surname.trim().length > 0 &&
+    username.trim().length >= 3 &&
+    phone.trim().length >= 10
 
   async function submit() {
     if (busy || !supabase) return
@@ -29,7 +40,23 @@ export function Auth() {
     const { error: authError } =
       mode === 'signin'
         ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password })
+        : // The identity travels as user metadata; the handle_new_user
+          // trigger writes it onto the profiles row at creation.
+          await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                display_name: name.trim(),
+                surname: surname.trim(),
+                username: username.trim(),
+                phone: phone.trim(),
+                // Whose share link brought them here (unlocks the
+                // referrer's R50 once this account exists).
+                referred_by: referredBy() ?? '',
+              },
+            },
+          })
     setBusy(false)
     if (authError) {
       setError(authError.message)
@@ -70,6 +97,49 @@ export function Auth() {
             </button>
           ))}
         </div>
+        {mode === 'signup' && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="name"
+                aria-label="Name"
+                autoComplete="given-name"
+                className="w-full px-4 py-3 rounded-2xl bg-bg-deep border border-edge outline-none
+                           font-semibold placeholder:text-ink-faint focus:border-accent"
+              />
+              <input
+                value={surname}
+                onChange={(e) => setSurname(e.target.value)}
+                placeholder="surname"
+                aria-label="Surname"
+                autoComplete="family-name"
+                className="w-full px-4 py-3 rounded-2xl bg-bg-deep border border-edge outline-none
+                           font-semibold placeholder:text-ink-faint focus:border-accent"
+              />
+            </div>
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="username"
+              aria-label="Username"
+              autoComplete="username"
+              className="w-full px-4 py-3 rounded-2xl bg-bg-deep border border-edge outline-none
+                         font-semibold placeholder:text-ink-faint focus:border-accent"
+            />
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="phone"
+              aria-label="Phone"
+              autoComplete="tel"
+              className="w-full px-4 py-3 rounded-2xl bg-bg-deep border border-edge outline-none
+                         font-semibold placeholder:text-ink-faint focus:border-accent"
+            />
+          </>
+        )}
         <input
           type="email"
           value={email}
@@ -89,7 +159,14 @@ export function Auth() {
                      font-semibold placeholder:text-ink-faint focus:border-accent"
         />
         {error && <p className="text-coral text-xs font-bold">{error}</p>}
-        <Button3D full size="lg" disabled={busy || !email || password.length < 6} onClick={() => void submit()}>
+        <Button3D
+          full
+          size="lg"
+          disabled={
+            busy || !email || password.length < 6 || (mode === 'signup' && !identityComplete)
+          }
+          onClick={() => void submit()}
+        >
           {mode === 'signin' ? 'Sign in' : 'Sign up'}
         </Button3D>
         <Button3D full variant="ghost" onClick={() => void google()}>
