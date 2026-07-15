@@ -43,7 +43,7 @@ describe('membership status', () => {
 })
 
 describe('payfast checkout url', () => {
-  it('builds a complete R200 checkout with return/cancel/ITN context', () => {
+  it('builds a yearly auto-renew subscription with return/cancel/ITN context', () => {
     const url = new URL(
       payfastCheckoutUrl({
         config: { merchantId: '10000100', merchantKey: 'abc', sandbox: false },
@@ -58,6 +58,24 @@ describe('payfast checkout url', () => {
     expect(url.searchParams.get('merchant_id')).toBe('10000100')
     expect(url.searchParams.get('return_url')).toContain('/plus?paid=1')
     expect(url.searchParams.get('custom_str1')).toBe('user-1')
+    expect(url.searchParams.get('subscription_type')).toBe('1')
+    expect(url.searchParams.get('frequency')).toBe('6')
+    expect(url.searchParams.get('cycles')).toBe('0')
+    expect(url.searchParams.get('recurring_amount')).toBe('200.00')
+  })
+
+  it('keeps renewals at full price when the first year is discounted', () => {
+    const url = new URL(
+      payfastCheckoutUrl({
+        config: { merchantId: 'x', merchantKey: 'y', sandbox: true },
+        origin: 'http://localhost',
+        amountCents: 15_000,
+        referralDiscount: true,
+      }),
+    )
+    expect(url.searchParams.get('amount')).toBe('150.00')
+    expect(url.searchParams.get('recurring_amount')).toBe('200.00')
+    expect(url.searchParams.get('custom_str2')).toBe('ref50')
   })
 
   it('uses the sandbox host when flagged', () => {

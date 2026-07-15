@@ -68,6 +68,8 @@ export function Auth() {
   async function google() {
     if (!supabase) return
     setError(null)
+    // Share-link ?ref= stays in localStorage; syncReferralRewards applies
+    // it after Google returns with a session.
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin },

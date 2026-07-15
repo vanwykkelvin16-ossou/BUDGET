@@ -151,9 +151,9 @@ export function Profile() {
                   }`}
                 >
                   {plusStatus === 'active'
-                    ? 'active'
+                    ? 'auto-renew'
                     : plusStatus === 'expired'
-                      ? 'renew'
+                      ? 'resubscribe'
                       : 'R200 / year'}
                 </span>
               </span>

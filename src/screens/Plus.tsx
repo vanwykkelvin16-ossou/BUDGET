@@ -1,41 +1,39 @@
 /**
- * PennyPlay Plus — R200 for a full year, billed yearly. One screen: what
- * you get, what it costs, current status, and the pay button. Real
- * checkout via PayFast when merchant keys are configured; otherwise a
- * clearly-labelled test mode so the flow works end to end.
+ * PennyPlay Plus — R200 / year, auto-renews yearly. One screen: what you
+ * get, what it costs, current status, and the subscribe button. Real
+ * PayFast subscription checkout when merchant keys are configured;
+ * otherwise a clearly-labelled test mode so the flow works end to end.
  */
 
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAppStore } from '../state/appStore'
-import { getSupabaseClient } from '../lib/supabaseClient'
 import {
-  clampToOneYear,
   daysLeft,
   loadMembership,
   membershipStatus,
   payfastConfig,
   PLUS_DAYS,
   PLUS_PRICE_CENTS,
-  saveMembership,
   type Membership,
 } from '../lib/membership'
 import { payForYear } from '../lib/plusCheckout'
 import {
-  adoptServerReferralCode,
   hasShared,
   myReferralCode,
   plusPriceCents,
   rewardUnlocked,
-  saveRewardUnlocked,
   shareApp,
+  syncReferralRewards,
 } from '../lib/referral'
+import { hydrateMembershipFromServer } from '../lib/membershipSync'
 import { formatDateLong, todaySAST } from '../lib/dates'
 import { formatZAR } from '../lib/money'
 import { Screen } from '../components/layout/Screen'
 import { Card } from '../components/ui/Card'
 import { Button3D } from '../components/ui/Button3D'
 import { Randy } from '../components/ui/Randy'
+import { ReferralCodeInput } from '../components/ReferralCodeInput'
 
 const PERKS: string[] = [
   'Fun money that always matches your real cash',
@@ -84,46 +82,24 @@ export function Plus() {
     window.setTimeout(() => setShareNote(null), 3000)
   }
 
-  // Supabase mode: the server-verified membership wins over local state.
+  // Supabase mode: membership + referral rewards come from the server.
   useEffect(() => {
-    const supabase = getSupabaseClient()
-    if (!supabase) return
     void (async () => {
-      const { data: auth } = await supabase.auth.getUser()
-      if (!auth.user) return
-      const { data } = await supabase
-        .from('memberships')
-        .select('paid_until, payment_ref, amount_cents, activated_at')
-        .eq('user_id', auth.user.id)
-        .maybeSingle()
-      if (data?.paid_until) {
-        const server: Membership = clampToOneYear({
-          paidUntil: data.paid_until as string,
-          paymentRef: (data.payment_ref as string) ?? 'payfast',
-          amountCents: (data.amount_cents as number) ?? PLUS_PRICE_CENTS,
-          activatedAt: (data.activated_at as string) ?? '',
-        })
-        saveMembership(server)
-        setMembership(server)
-      }
-      // Share links must use the account's code, and a signed-up friend
-      // unlocks the R50 — both server truths.
-      const { data: me } = await supabase
-        .from('profiles')
-        .select('referral_code')
-        .eq('id', auth.user.id)
-        .maybeSingle()
-      if (me?.referral_code) {
-        adoptServerReferralCode(me.referral_code as string)
-        setRefCode(me.referral_code as string)
-      }
-      const { count } = await supabase
-        .from('referrals')
-        .select('referred_user_id', { count: 'exact', head: true })
-        .eq('referrer_user_id', auth.user.id)
-      if ((count ?? 0) > 0) {
-        saveRewardUnlocked(true)
-        setReward(true)
+      const hydrated = await hydrateMembershipFromServer()
+      if (hydrated) setMembership(hydrated)
+      await syncReferralRewards()
+      setReward(rewardUnlocked())
+      setRefCode(myReferralCode())
+
+      // After PayFast return, poll briefly until ITN writes the membership.
+      if (!justPaid) return
+      for (let i = 0; i < 8; i++) {
+        await new Promise((r) => window.setTimeout(r, 1500))
+        const again = await hydrateMembershipFromServer()
+        if (again && membershipStatus(again) === 'active') {
+          setMembership(again)
+          return
+        }
       }
     })()
   }, [justPaid])
@@ -143,7 +119,9 @@ export function Plus() {
   }
 
   return (
-    <Screen withTabBar={false}>
+    // Tab bar stays visible on /plus (see App.tsx), so keep the matching
+    // bottom padding — otherwise the share + perks cards sit under the FAB.
+    <Screen>
       <header className="flex items-center gap-3 mb-4">
         <Link
           to="/profile"
@@ -178,25 +156,25 @@ export function Plus() {
             </p>
             <p className="font-display font-extrabold leading-tight mt-1">
               <span className="text-gradient-gold animate-shimmer text-5xl">
-                {formatZAR(PLUS_PRICE_CENTS, { showCents: false })}
+                {formatZAR(priceCents, { showCents: false })}
               </span>
               <span className="text-base text-ink-soft"> / year</span>
             </p>
-            {reward && isFirstPayment && (
+            {reward && isFirstPayment && priceCents < PLUS_PRICE_CENTS && (
               <p className="text-xs font-extrabold text-lime mt-1">
-                🎁 {formatZAR(priceCents, { showCents: false })} for your first year — friend
-                reward applied
+                Was {formatZAR(PLUS_PRICE_CENTS, { showCents: false })} — R50 referral discount
+                applied
               </p>
             )}
 
             <div className="flex items-stretch justify-center divide-x divide-edge mt-4">
               <div className="flex-1 px-1.5 flex flex-col items-center gap-1">
-                <span className="font-display font-extrabold text-[13px] text-ink leading-none">One</span>
-                <span className="text-[9.5px] text-ink-faint font-bold leading-tight">payment</span>
-              </div>
-              <div className="flex-1 px-1.5 flex flex-col items-center gap-1">
                 <span className="font-display font-extrabold text-[13px] text-ink leading-none">Yearly</span>
                 <span className="text-[9.5px] text-ink-faint font-bold leading-tight">billing</span>
+              </div>
+              <div className="flex-1 px-1.5 flex flex-col items-center gap-1">
+                <span className="font-display font-extrabold text-[13px] text-ink leading-none">Auto</span>
+                <span className="text-[9.5px] text-ink-faint font-bold leading-tight">renews</span>
               </div>
               <div className="flex-1 px-1.5 flex flex-col items-center gap-1">
                 <span className="font-display font-extrabold text-[13px] text-ink leading-none">12 months</span>
@@ -218,7 +196,7 @@ export function Plus() {
                 </div>
                 <div className="flex justify-between mt-1.5 text-[9px] font-extrabold uppercase tracking-wider text-ink-faint">
                   <span>Your year</span>
-                  <span>Renews by choice 🎉</span>
+                  <span>Auto-renews yearly</span>
                 </div>
               </div>
             )}
@@ -227,7 +205,7 @@ export function Plus() {
                 className="inline-block mt-4 px-3 py-1 rounded-full bg-coral/15 border border-coral/40
                            text-coral text-xs font-extrabold"
               >
-                Your year is up — renew to keep full access
+                Membership lapsed — resubscribe to restore full access
               </p>
             )}
             {justPaid && status !== 'active' && (
@@ -244,20 +222,26 @@ export function Plus() {
       </div>
 
       {status === 'active' ? (
-        // One year at a time — no stacking. Renewal appears when it lapses.
         <p className="text-center text-sm text-ink-soft font-semibold py-2">
-          🎉 You're all set for the year. Renewal opens here when your year is up.
+          You&apos;re all set. Your subscription auto-renews yearly
+          {membership ? ` around ${formatDateLong(membership.paidUntil)}` : ''}.
         </p>
       ) : (
         <>
+          <Card className="mb-4">
+            <ReferralCodeInput
+              disabled={busy || (reward && isFirstPayment)}
+              onApplied={() => setReward(true)}
+            />
+          </Card>
           <Button3D full size="lg" variant="gold" disabled={busy} onClick={() => void pay()}>
             {status === 'expired'
-              ? `Renew — ${formatZAR(priceCents, { showCents: false })} for a year`
-              : `Pay ${formatZAR(priceCents, { showCents: false })} for a year`}
+              ? `Resubscribe — ${formatZAR(priceCents, { showCents: false })}/year`
+              : `Subscribe — ${formatZAR(priceCents, { showCents: false })}/year`}
           </Button3D>
           <p className="text-center text-[10px] text-ink-faint font-bold mt-3 pb-6">
             {config
-              ? `Secure checkout by PayFast${config.sandbox ? ' (sandbox)' : ''}. No auto-renewal — you choose when to pay again.`
+              ? `Secure checkout by PayFast${config.sandbox ? ' (sandbox)' : ''}. Yearly · auto-renews · cancel anytime.`
               : 'Test mode: payments aren’t connected yet, so this activates a trial year on this device.'}
           </p>
         </>
@@ -318,7 +302,7 @@ export function Plus() {
       </div>
 
       {/* What you get */}
-      <Card className="mb-8">
+      <Card className="mb-4">
         <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-ink-faint mb-3">
           Everything, unlocked
         </p>
