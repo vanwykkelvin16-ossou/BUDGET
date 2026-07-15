@@ -242,7 +242,14 @@ export function Plus() {
           <p className="text-center text-[10px] text-ink-faint font-bold mt-3 pb-6">
             {config
               ? `Secure checkout by PayFast${config.sandbox ? ' (sandbox)' : ''}. Yearly · auto-renews · cancel anytime.`
-              : 'Test mode: payments aren’t connected yet, so this activates a trial year on this device.'}
+              : 'Test mode: payments aren’t connected yet, so this activates a trial year on this device.'}{' '}
+            <Link to="/terms" className="underline">
+              Terms
+            </Link>
+            {' · '}
+            <Link to="/privacy" className="underline">
+              Privacy
+            </Link>
           </p>
         </>
       )}

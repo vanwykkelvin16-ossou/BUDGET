@@ -29,6 +29,7 @@ import { TrophyCabinet } from './screens/TrophyCabinet'
 import { SeasonRecap } from './screens/SeasonRecap'
 import { Settings } from './screens/Settings'
 import { Privacy } from './screens/Privacy'
+import { Terms } from './screens/Terms'
 import { Plus } from './screens/Plus'
 
 export function App() {
@@ -104,16 +105,31 @@ export function App() {
     )
   }
 
+  // Store reviewers open policy URLs cold — no account or profile required.
+  const legalRoutes = (
+    <>
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
+    </>
+  )
+
   if (needsAuth) {
-    return <Auth />
+    return (
+      <>
+        <Routes>
+          {legalRoutes}
+          <Route path="*" element={<Auth />} />
+        </Routes>
+        <JuiceHost />
+      </>
+    )
   }
 
   if (!profile) {
     return (
       <>
         <Routes>
-          {/* Store reviewers open the policy URL cold — no profile needed. */}
-          <Route path="/privacy" element={<Privacy />} />
+          {legalRoutes}
           <Route path="*" element={<Onboarding />} />
         </Routes>
         <JuiceHost />
@@ -139,6 +155,7 @@ export function App() {
         <Route path="/recap" element={<SeasonRecap />} />
         <Route path="/plus" element={<Plus />} />
         <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {!fullScreen && <TabBar />}
