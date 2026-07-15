@@ -156,6 +156,44 @@ export function Plus() {
         <h1 className="font-display font-extrabold text-2xl">PennyPlay Plus</h1>
       </header>
 
+      {/* Randy's monthly save → free year */}
+      {status !== 'active' && (
+        <div
+          className="relative rounded-[26px] p-[1.5px] mb-4 animate-pop-in"
+          style={{ background: 'linear-gradient(135deg,#ffd700 0%,#a3e635 50%,#22d3ee 100%)' }}
+        >
+          <Card glow="gold" className="!border-transparent relative overflow-hidden">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-gradient-to-br
+                         from-gold/10 via-transparent to-lime/10"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute right-0 top-0 w-36 h-36
+                         rounded-full bg-gold/15 blur-3xl -translate-y-1/3 translate-x-1/4"
+            />
+            <div className="relative flex items-center gap-4">
+              <Randy mood="celebrating" size={78} className="shrink-0 animate-bounce-fab" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-gold">
+                  This month with Randy
+                </p>
+                <p className="font-display font-extrabold text-lg leading-[1.15] mt-1">
+                  Let Randy save you{' '}
+                  <span className="text-gradient-gold animate-shimmer">R150</span>
+                </p>
+                <p className="text-xs text-ink-soft font-semibold leading-snug mt-1.5">
+                  That makes the app{' '}
+                  <span className="text-lime font-extrabold">free for you</span> for{' '}
+                  <span className="text-aqua font-extrabold">{PLUS_DAYS} days</span>.
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* Offer / member card */}
       <div
         className="rounded-[26px] p-[2px] mb-4"
