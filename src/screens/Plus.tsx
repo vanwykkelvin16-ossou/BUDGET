@@ -30,6 +30,12 @@ import {
   saveRewardUnlocked,
   shareApp,
 } from '../lib/referral'
+import {
+  PLUS_HEADLINE,
+  PLUS_PRICE_BLURB,
+  PLUS_REFERRAL_BLURB,
+  PLUS_VALUE_LINE,
+} from '../lib/plusOffer'
 import { formatDateLong, todaySAST } from '../lib/dates'
 import { formatZAR } from '../lib/money'
 import { Screen } from '../components/layout/Screen'
@@ -176,7 +182,15 @@ export function Plus() {
             <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-ink-faint mt-2">
               PennyPlay Plus
             </p>
-            <p className="font-display font-extrabold leading-tight mt-1">
+            <h2 className="font-display font-extrabold text-xl mt-1 leading-tight">
+              {PLUS_HEADLINE}
+            </h2>
+            <p className="text-sm text-ink-soft font-semibold mt-2">{PLUS_PRICE_BLURB}</p>
+            <p className="text-sm text-ink-soft font-semibold mt-1">{PLUS_REFERRAL_BLURB}</p>
+            <p className="text-xs text-ink-faint font-semibold italic mt-3 max-w-[36ch] mx-auto leading-snug">
+              {PLUS_VALUE_LINE}
+            </p>
+            <p className="font-display font-extrabold leading-tight mt-4">
               <span className="text-gradient-gold animate-shimmer text-5xl">
                 {formatZAR(PLUS_PRICE_CENTS, { showCents: false })}
               </span>
@@ -184,7 +198,7 @@ export function Plus() {
             </p>
             {reward && isFirstPayment && (
               <p className="text-xs font-extrabold text-lime mt-1">
-                🎁 {formatZAR(priceCents, { showCents: false })} for your first year — friend
+                {formatZAR(priceCents, { showCents: false })} for your first year — friend
                 reward applied
               </p>
             )}
@@ -282,7 +296,7 @@ export function Plus() {
                 Share &amp; save R50
               </p>
               <p className="font-display font-extrabold text-sm leading-tight">
-                Give PennyPlay, get R50 off your first year
+                {PLUS_REFERRAL_BLURB}
               </p>
             </div>
           </div>
