@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAppStore } from '../state/appStore'
 import { getSupabaseClient } from '../lib/supabaseClient'
 import { referredBy } from '../lib/referral'
@@ -169,6 +170,19 @@ export function Auth() {
         >
           {mode === 'signin' ? 'Sign in' : 'Sign up'}
         </Button3D>
+        {mode === 'signup' && (
+          <p className="text-center text-[10px] text-ink-faint font-bold leading-relaxed">
+            By creating an account you agree to the{' '}
+            <Link to="/terms" className="underline">
+              Terms
+            </Link>{' '}
+            and{' '}
+            <Link to="/privacy" className="underline">
+              Privacy policy
+            </Link>
+            .
+          </p>
+        )}
         <Button3D full variant="ghost" onClick={() => void google()}>
           Continue with Google
         </Button3D>
