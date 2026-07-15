@@ -24,6 +24,7 @@ import type {
 import { emptyAppData } from '../lib/data/types'
 import type { DataStore } from '../lib/data/store'
 import { getDataStore } from '../lib/data'
+import { clearLocalDemo, loadLocalDemo, saveLocalDemo } from '../lib/data/demoLocal'
 import { DEFAULT_CATEGORIES, makeDefaultProfile } from '../lib/data/defaults'
 import { buildDemoData } from '../lib/data/seedDemo'
 import { uid } from '../lib/id'
@@ -121,6 +122,12 @@ const store: DataStore = getDataStore()
 
 const nowISO = () => new Date().toISOString()
 
+/** Demo data always lands in localStorage so it survives refresh without auth. */
+async function persistAppData(data: AppData): Promise<AppData> {
+  if (data.profile?.isDemo) return saveLocalDemo(data)
+  return store.persist(data)
+}
+
 /* ------------------------------------------------------------------ */
 /*  XP / badge helpers (operate on a mutable working copy)             */
 /* ------------------------------------------------------------------ */
@@ -193,7 +200,7 @@ async function applyHousekeeping(
   const today = todaySAST()
   const data = runHousekeeping(get().data, today, nowISO())
   set({ data, currentDay: today })
-  const synced = await store.persist(data)
+  const synced = await persistAppData(data)
   set({ data: reconcile(synced, today) })
 }
 
@@ -356,7 +363,7 @@ export const useAppStore = create<AppState>((set, get) => {
     reconcile(data, today)
     set({ data, currentDay: today })
     if (juice.length > 0) useJuiceStore.getState().push(...juice)
-    const synced = await store.persist(data)
+    const synced = await persistAppData(data)
     set({ data: reconcile(synced, today) })
   }
 
@@ -368,21 +375,36 @@ export const useAppStore = create<AppState>((set, get) => {
 
     init: async () => {
       if (get().loaded) return
-      const stored = await store.load()
-      if (!stored?.profile) {
-        // Supabase mode: no session at all → the auth screen; a session
-        // without an onboarded profile → onboarding.
-        if (store.kind === 'supabase' && !(await store.userId?.())) {
+
+      // Supabase with a session → cloud profile. Without a session, resume a
+      // local demo snapshot if one exists so Try demo mode works signed-out.
+      if (store.kind === 'supabase') {
+        const userId = await store.userId?.()
+        if (!userId) {
+          const demo = await loadLocalDemo()
+          if (demo) {
+            const data = runHousekeeping(demo, todaySAST(), nowISO())
+            setSoundEnabled(data.profile?.soundEnabled ?? true)
+            set({ loaded: true, needsAuth: false, data })
+            const synced = await saveLocalDemo(data)
+            set({ data: reconcile(synced, todaySAST()) })
+            return
+          }
           set({ loaded: true, needsAuth: true, data: emptyAppData() })
           return
         }
+      }
+
+      const stored = await store.load()
+      if (!stored?.profile) {
+        // Session without an onboarded profile → onboarding.
         set({ loaded: true, needsAuth: false, data: stored ?? emptyAppData() })
         return
       }
       const data = runHousekeeping(stored, todaySAST(), nowISO())
       setSoundEnabled(data.profile?.soundEnabled ?? true)
       set({ loaded: true, needsAuth: false, data })
-      const synced = await store.persist(data)
+      const synced = await persistAppData(data)
       set({ data: reconcile(synced, todaySAST()) })
     },
 
@@ -393,8 +415,9 @@ export const useAppStore = create<AppState>((set, get) => {
 
     startDemo: async () => {
       const data = runHousekeeping(buildDemoData(), todaySAST(), nowISO())
-      set({ loaded: true, data })
-      const synced = await store.persist(data)
+      setSoundEnabled(data.profile?.soundEnabled ?? true)
+      set({ loaded: true, needsAuth: false, data })
+      const synced = await saveLocalDemo(data)
       set({ data: synced })
     },
 
@@ -438,8 +461,10 @@ export const useAppStore = create<AppState>((set, get) => {
         ],
       }
       const data = runHousekeeping(base, today, nowISO())
-      set({ loaded: true, data })
+      set({ loaded: true, needsAuth: false, data })
       useJuiceStore.getState().push({ kind: 'confetti' }, { kind: 'coins' })
+      // Real profile replaces any leftover demo snapshot.
+      await clearLocalDemo()
       const synced = await store.persist(data)
       set({ data: synced })
     },
@@ -521,14 +546,19 @@ export const useAppStore = create<AppState>((set, get) => {
       if (today === state.currentDay) return
       const data = runHousekeeping(state.data, today, nowISO())
       set({ data, currentDay: today })
-      const synced = await store.persist(data)
+      const synced = await persistAppData(data)
       set({ data: reconcile(synced, today) })
     },
 
     syncExternal: async () => {
       const state = get()
       if (!state.loaded) return
-      const stored = await store.load()
+      // Demo lives only in the local side-channel when Supabase is the
+      // primary store — refresh from there instead of an empty cloud load.
+      const stored =
+        state.data.profile?.isDemo && store.kind === 'supabase'
+          ? await loadLocalDemo()
+          : await store.load()
       if (!stored?.profile) return
       stored.reviews ??= []
       stored.assets ??= []
@@ -861,7 +891,7 @@ export const useAppStore = create<AppState>((set, get) => {
         const today = todaySAST()
         const data = runHousekeeping(get().data, today, nowISO())
         set({ data })
-        const synced = await store.persist(data)
+        const synced = await persistAppData(data)
         set({ data: reconcile(synced, today) })
       }
     },
@@ -916,6 +946,7 @@ export const useAppStore = create<AppState>((set, get) => {
 
     resetAll: async () => {
       await store.clear()
+      await clearLocalDemo()
       useJuiceStore.getState().clear()
       set({ data: emptyAppData(), loaded: true, needsAuth: store.kind === 'supabase' })
     },

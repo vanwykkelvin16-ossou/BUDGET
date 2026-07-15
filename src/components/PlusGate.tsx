@@ -1,12 +1,14 @@
 /**
- * Post-signup explore gate. Real (non-demo) users get 35 seconds inside the
- * app after their profile is ready; without an active PennyPlay Plus year, a
- * full-screen, undismissable offer takes over until they pay once for the
- * year. Members and demo mode never see it. Explore start is persisted so a
- * refresh cannot restart the free look.
+ * Session premium gate.
+ *
+ * - Demo users: soft overlay after ~90s — Unlock or Keep exploring.
+ * - Real non-members: hard undismissable overlay after 45s (persisted so
+ *   refresh cannot restart the free look).
+ * - Active Plus members: never shown.
  */
 
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../state/appStore'
 import {
@@ -18,14 +20,19 @@ import {
 import { hasActiveMembership } from '../lib/membershipSync'
 import { plusPriceCents, rewardUnlocked, syncReferralRewards } from '../lib/referral'
 import { payForYear } from '../lib/plusCheckout'
+import {
+  PLUS_HEADLINE,
+  PLUS_PRICE_BLURB,
+  PLUS_REFERRAL_BLURB,
+  PLUS_VALUE_LINE,
+} from '../lib/plusOffer'
+import { gateModeFor, gateSecondsFor } from '../lib/plusGate'
 import { formatZAR } from '../lib/money'
 import { Button3D } from './ui/Button3D'
 import { Randy } from './ui/Randy'
 import { ReferralCodeInput } from './ReferralCodeInput'
 
-const GATE_SECONDS_KEY = 'pennyplay:gate-seconds' // test override
 const EXPLORE_STARTED_KEY = 'pennyplay:explore-started:v1'
-const DEFAULT_GATE_SECONDS = 35
 
 const GATE_PERKS = [
   'Fun money for today, always true to your cash',
@@ -33,19 +40,6 @@ const GATE_PERKS = [
   'Smart nudges and the month tracker',
   'Every new feature for 12 months',
 ]
-
-function gateSeconds(): number {
-  try {
-    const raw = localStorage.getItem(GATE_SECONDS_KEY)
-    if (raw != null && raw !== '') {
-      const n = Number(raw)
-      if (Number.isFinite(n) && n >= 0) return n
-    }
-  } catch {
-    /* default stands */
-  }
-  return DEFAULT_GATE_SECONDS
-}
 
 function readExploreStarted(): number | null {
   try {
@@ -70,14 +64,31 @@ function markExploreStarted(at: number = Date.now()): void {
 
 export function PlusGate() {
   const profile = useAppStore((s) => s.data.profile)
+  const navigate = useNavigate()
   const [blocked, setBlocked] = useState(false)
   const [busy, setBusy] = useState(false)
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
   const [reward, setReward] = useState(rewardUnlocked)
   const [tick, setTick] = useState(0)
+  const membershipActive = membershipStatus(loadMembership()) === 'active'
+  const mode = gateModeFor(profile, membershipActive)
 
   useEffect(() => {
-    if (!profile || profile.isDemo) return
+    if (mode === 'skip') {
+      setBlocked(false)
+      setSecondsLeft(null)
+      return
+    }
+
+    if (mode === 'soft') {
+      const seconds = gateSecondsFor('soft')
+      const timer = window.setTimeout(() => {
+        if (membershipStatus(loadMembership()) !== 'active') setBlocked(true)
+      }, seconds * 1000)
+      return () => window.clearTimeout(timer)
+    }
+
+    // Hard gate: persisted explore window for real users.
     let cancelled = false
     let interval: number | undefined
     let timeout: number | undefined
@@ -96,7 +107,7 @@ export function PlusGate() {
       }
       if (cancelled) return
 
-      const total = gateSeconds()
+      const total = gateSecondsFor('hard')
       const now = Date.now()
       let started = readExploreStarted()
       if (started == null) {
@@ -133,9 +144,9 @@ export function PlusGate() {
       if (interval) window.clearInterval(interval)
       if (timeout) window.clearTimeout(timeout)
     }
-  }, [profile])
+  }, [mode, profile?.id])
 
-  if (!profile || profile.isDemo) return null
+  if (!profile || mode === 'skip') return null
 
   const current: Membership | null = loadMembership()
   const priceCents = plusPriceCents({
@@ -143,6 +154,7 @@ export function PlusGate() {
     unlocked: reward,
     isFirstPayment: current === null,
   })
+  const soft = mode === 'soft'
 
   async function subscribe() {
     if (busy) return
@@ -162,26 +174,36 @@ export function PlusGate() {
     }
   }
 
+  function unlock() {
+    setBlocked(false)
+    navigate('/plus')
+  }
+
+  function keepExploring() {
+    setBlocked(false)
+  }
+
   return (
     <>
-      {/* Explore countdown chip — only while the free look is still running. */}
-      <AnimatePresence>
-        {secondsLeft != null && secondsLeft > 0 && !blocked && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            className="fixed top-[max(env(safe-area-inset-top),12px)] inset-x-0 z-[70] flex justify-center pointer-events-none"
-          >
-            <div
-              className="px-3 py-1.5 rounded-full bg-card/95 border border-edge backdrop-blur
-                         text-[11px] font-extrabold text-ink-soft shadow-lg"
+      {mode === 'hard' && (
+        <AnimatePresence>
+          {secondsLeft != null && secondsLeft > 0 && !blocked && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              className="fixed top-[max(env(safe-area-inset-top),12px)] inset-x-0 z-[70] flex justify-center pointer-events-none"
             >
-              Free explore · {secondsLeft}s
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <div
+                className="px-3 py-1.5 rounded-full bg-card/95 border border-edge backdrop-blur
+                           text-[11px] font-extrabold text-ink-soft shadow-lg"
+              >
+                Free explore · {secondsLeft}s
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
 
       <AnimatePresence>
         {blocked && (
@@ -189,6 +211,7 @@ export function PlusGate() {
             key={tick}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className="fixed inset-0 z-[80] bg-bg overflow-y-auto"
           >
             <div className="max-w-md mx-auto px-5 py-10 flex flex-col items-center text-center min-h-full justify-center">
@@ -197,10 +220,18 @@ export function PlusGate() {
                 PennyPlay Plus
               </p>
               <h2 className="font-display font-extrabold text-2xl mt-1">
-                Your free look around is over
+                {soft ? PLUS_HEADLINE : 'Your free look around is over'}
               </h2>
               <p className="text-sm text-ink-soft font-semibold mt-2 max-w-[34ch]">
-                Unlock the full app — billed yearly, and the amount auto-renews each year.
+                {soft
+                  ? PLUS_PRICE_BLURB
+                  : 'Unlock the full app — billed yearly, and the amount auto-renews each year.'}
+              </p>
+              <p className="text-sm text-ink-soft font-semibold mt-1.5 max-w-[34ch]">
+                {PLUS_REFERRAL_BLURB}
+              </p>
+              <p className="text-xs text-ink-faint font-semibold italic mt-3 max-w-[36ch] leading-snug">
+                {PLUS_VALUE_LINE}
               </p>
 
               <p className="font-display font-extrabold leading-tight mt-5">
@@ -215,12 +246,14 @@ export function PlusGate() {
                 </p>
               )}
 
-              <div className="w-full mt-5 rounded-[24px] border border-edge bg-card p-4 text-left">
-                <ReferralCodeInput
-                  disabled={busy || (reward && current === null)}
-                  onApplied={() => setReward(true)}
-                />
-              </div>
+              {!soft && (
+                <div className="w-full mt-5 rounded-[24px] border border-edge bg-card p-4 text-left">
+                  <ReferralCodeInput
+                    disabled={busy || (reward && current === null)}
+                    onApplied={() => setReward(true)}
+                  />
+                </div>
+              )}
 
               <div className="w-full mt-4 rounded-[24px] border border-edge bg-card p-4 text-left">
                 {GATE_PERKS.map((perk) => (
@@ -237,13 +270,26 @@ export function PlusGate() {
                 ))}
               </div>
 
-              <div className="w-full mt-6">
-                <Button3D full size="lg" variant="gold" disabled={busy} onClick={() => void subscribe()}>
-                  Subscribe — {formatZAR(priceCents, { showCents: false })}/year
-                </Button3D>
+              <div className="w-full mt-6 flex flex-col gap-3">
+                {soft ? (
+                  <>
+                    <Button3D full size="lg" variant="gold" onClick={unlock}>
+                      Unlock the full experience
+                    </Button3D>
+                    <Button3D full variant="ghost" onClick={keepExploring}>
+                      Keep exploring
+                    </Button3D>
+                  </>
+                ) : (
+                  <Button3D full size="lg" variant="gold" disabled={busy} onClick={() => void subscribe()}>
+                    Subscribe — {formatZAR(priceCents, { showCents: false })}/year
+                  </Button3D>
+                )}
               </div>
               <p className="text-[10px] text-ink-faint font-bold mt-3 pb-8">
-                Yearly subscription · auto-renews · cancel anytime in PayFast
+                {soft
+                  ? 'Billed yearly · cancel anytime · your data stays yours'
+                  : 'Yearly subscription · auto-renews · cancel anytime in PayFast'}
               </p>
             </div>
           </motion.div>

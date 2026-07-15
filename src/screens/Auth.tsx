@@ -15,6 +15,7 @@ import { Randy } from '../components/ui/Randy'
 
 export function Auth() {
   const reload = useAppStore((s) => s.reload)
+  const startDemo = useAppStore((s) => s.startDemo)
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -189,6 +190,11 @@ export function Auth() {
           Continue with Google
         </Button3D>
       </Card>
+      <div className="mt-4">
+        <Button3D full variant="ghost" onClick={() => void startDemo()}>
+          Try demo mode first
+        </Button3D>
+      </div>
       <p className="text-center text-[10px] text-ink-faint font-bold mt-4">
         Google sign-in needs the provider enabled in your Supabase dashboard.
       </p>
