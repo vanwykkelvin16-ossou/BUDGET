@@ -9,32 +9,40 @@ app's owner. Follow the two tracks below.
 - Store-grade web manifest (`id`, `lang`, `categories`, screenshots, maskable icon)
 - Privacy policy at `https://budget-omega-ochre.vercel.app/privacy` (works without an account)
 - Digital Asset Links placeholder at `public/.well-known/assetlinks.json`
-- Capacitor iOS project in `ios/` (`app.pennyplay.budget`)
+- Capacitor iOS project in `ios/` and Android project in `android/`
+  (both `app.pennyplay.budget`)
+- **Scheduled budget reminders** via `@capacitor/local-notifications` on both
+  platforms: weekly budget check-in (Mon 08:00), monthly budget planner
+  (every pay day 09:00), Sunday recap (17:00) and achievement alerts. They
+  are scheduled on-device — no push server or Firebase account needed — and
+  fire even when the app is closed.
 - Store assets in `store/`: 1024×1024 App Store icon, Apple 6.7″ screenshots
   (1290×2796), Play screenshots (1170×2532)
 
 ---
 
-## Track 1 — Google Play (do this first; no Mac needed)
+## Track 1 — Google Play (no Mac needed)
+
+The Play build ships from the Capacitor Android project in `android/`, so
+the notification reminders work with the app closed (a plain TWA/PWABuilder
+wrapper cannot schedule notifications).
 
 1. **Create a Google Play Console account** at
    [play.google.com/console](https://play.google.com/console) — $25 once.
-2. Go to **[pwabuilder.com](https://www.pwabuilder.com)**, enter
-   `https://budget-omega-ochre.vercel.app`, and click **Package for stores →
-   Android**. Set:
-   - Package ID: `app.pennyplay.budget`
-   - App name: `PennyPlay`
-   - Signing: let PWABuilder generate a key **or** use Play App Signing
-     (recommended). Download the `.aab` + the signing details it gives you.
-3. In Play Console: **Create app → PennyPlay** (App, Free), then upload the
+2. On any machine with Android Studio installed, clone this repo and run:
+
+   ```sh
+   npm ci
+   npm run build
+   npx cap sync android
+   npx cap open android
+   ```
+
+3. In Android Studio: *Build → Generate Signed App Bundle* — create (and
+   keep!) an upload keystore, or enrol in Play App Signing (recommended).
+   This produces the `.aab`.
+4. In Play Console: **Create app → PennyPlay** (App, Free), then upload the
    `.aab` under *Production → Create release*.
-4. **Digital Asset Links** — this removes the browser bar so the app looks
-   fully native:
-   - In Play Console open *Setup → App signing* and copy the
-     **SHA-256 certificate fingerprint**.
-   - Paste it into `public/.well-known/assetlinks.json` in this repo
-     (replacing `REPLACE_WITH_SHA256_FINGERPRINT_FROM_PLAY_CONSOLE`),
-     merge to `main`, and let Vercel deploy.
 5. Fill in the store listing:
    - Short description: *"Budgeting that feels like a game — know your fun
      money for today, every day."*
@@ -46,8 +54,9 @@ app's owner. Follow the two tracks below.
 6. Complete the content-rating questionnaire (finance app, no user-generated
    content → rated "Everyone") and submit. Review typically takes a few days.
 
-Once live, every deploy to Vercel updates the store app automatically — the
-package is a trusted wrapper around the live URL.
+The app is bundled inside the binary, so ship an updated `.aab` (repeat
+step 2 + bump `versionCode` in `android/app/build.gradle`) when you want
+store users to get new features.
 
 ## Track 2 — Apple App Store (needs a Mac + $99/year)
 
@@ -77,13 +86,13 @@ package is a trusted wrapper around the live URL.
    - Test through **TestFlight** first, then *Submit for Review*.
 5. **Review tip (guideline 4.2, minimum functionality):** Apple rejects thin
    website wrappers. PennyPlay ships bundled inside the binary (not a URL
-   wrapper), works fully offline, and has notifications — mention this in the
-   *Review Notes* field. If a reviewer still pushes back, the next step is
-   adding a Capacitor native plugin or two (haptics, local notifications) —
-   one command each, ask your developer/agent.
+   wrapper), works fully offline, and uses the native Local Notifications
+   plugin for scheduled weekly/monthly budget reminders and achievement
+   alerts — mention this in the *Review Notes* field.
 
 ## Updating the apps later
 
-- **Play**: nothing to do — it tracks the live site.
-- **Apple**: repeat step 2's four commands, bump the version in Xcode,
-  archive and upload again.
+- **Play**: repeat Track 1 step 2's four commands, bump `versionCode` in
+  `android/app/build.gradle`, generate a new signed `.aab` and upload it.
+- **Apple**: repeat Track 2 step 2's four commands, bump the version in
+  Xcode, archive and upload again.

@@ -72,6 +72,15 @@ Security model:
 - **XP can't be gamed from the client**: `xp_events` has no client insert policy. XP is written only by `security definer` DB triggers (expense/contribution) and the `award-xp` edge function, which re-verifies day-close awards, no-spend days and quest claims server-side. Every award is idempotent via `(user_id, ref_id)`.
 - New signups get a profile + default categories via an `auth.users` trigger.
 
+## Notifications & reminders
+
+- **Weekly budget check-in** (Mondays 08:00) and **monthly budget planner** (every pay day 09:00) remind you to plan the week / the new cycle. On the iOS and Android apps these are pre-scheduled with the OS via `@capacitor/local-notifications`, so they arrive even when the app is fully closed; on the web/PWA they fire from the in-app sweep.
+- **Weekly recap** (Sundays 17:00) nudges you to review the week and claim quest XP.
+- **Achievement alerts** celebrate badges, achieved goals and level-ups as system notifications.
+- Plus pay-day, overspend, streak-rescue and evening log-reminder nudges — all opt-in per toggle under **Profile → Nudges & alerts**, all generated on-device (no push server, nothing leaves the phone).
+
+The decision engine (`src/lib/notifications.ts`) and the OS scheduling plan (`src/lib/reminders.ts`) are pure functions with unit tests.
+
 ## Phase 2 (designed, stubbed in Profile → Coming soon)
 
-Push-notification nudges · CSV bank statement import · Partner/shared budgets.
+CSV bank statement import · Partner/shared budgets.

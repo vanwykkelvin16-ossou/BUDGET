@@ -23,7 +23,7 @@ const SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: 'Notifications',
-    body: 'Nudges (pay-day, overspend, streak reminders) are generated on your device. Turning them on only asks your browser or phone for permission — no notification data leaves the device.',
+    body: 'Nudges and reminders (weekly and monthly budgeting, achievements, pay-day, overspend, streak reminders) are generated and scheduled on your device. Turning them on only asks your browser or phone for permission — no notification data leaves the device.',
   },
   {
     title: 'Deleting your data',
