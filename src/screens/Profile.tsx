@@ -26,7 +26,9 @@ import {
   showSystemNotification,
   type NotificationPrefs,
 } from '../lib/notifications'
-import { loadMembership, membershipStatus } from '../lib/membership'
+import { loadMembership, membershipStatus, PLUS_PRICE_CENTS } from '../lib/membership'
+import { myReferralCode, rewardUnlocked } from '../lib/referral'
+import { formatZAR } from '../lib/money'
 
 const PHASE2 = [
   { icon: '📄', title: 'Bank statement import', blurb: 'Drop a CSV, get everything categorised.' },
@@ -83,6 +85,9 @@ export function Profile() {
   const unlocked = new Set(unlockedThemes(progress.level))
   const badgeCount = data.userBadges.length
   const plusStatus = membershipStatus(loadMembership(), today)
+  const referralCode = myReferralCode()
+  const friendReward = rewardUnlocked()
+  const yearPrice = formatZAR(PLUS_PRICE_CENTS, { showCents: false })
 
   return (
     <Screen>
@@ -131,36 +136,89 @@ export function Profile() {
         </Card>
       </div>
 
+      {/* Plus activation — clear entry: price, referral code, value cue */}
+      <Link to="/plus" className="block mb-5" aria-label="Open PennyPlay Plus activation">
+        <div
+          className="rounded-[28px] p-[2px] animate-pop-in"
+          style={{ background: 'linear-gradient(120deg,#7c3aed,#22d3ee,#a3e635)' }}
+        >
+          <Card className="!border-transparent relative overflow-hidden !p-4">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -right-6 -top-8 w-36 h-36
+                         rounded-full bg-gold/15 blur-3xl"
+            />
+            <div className="relative flex items-start gap-3">
+              <Randy mood="celebrating" size={56} className="shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="font-display font-extrabold text-base leading-none">
+                    PennyPlay Plus
+                  </h2>
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                      plusStatus === 'active'
+                        ? 'bg-lime/15 text-lime'
+                        : plusStatus === 'expired'
+                          ? 'bg-coral/15 text-coral'
+                          : 'bg-gold/15 text-gold'
+                    }`}
+                  >
+                    {plusStatus === 'active'
+                      ? 'active'
+                      : plusStatus === 'expired'
+                        ? 'renew'
+                        : `${yearPrice} / year`}
+                  </span>
+                </div>
+
+                {plusStatus === 'active' ? (
+                  <p className="text-xs text-ink-soft font-semibold mt-1.5 leading-snug">
+                    Your year is on. Your referral code is ready — tap to share it with friends.
+                  </p>
+                ) : (
+                  <p className="text-xs text-ink-soft font-semibold mt-1.5 leading-snug">
+                    Annual subscription — {yearPrice} per year. If Randy helps you save your first{' '}
+                    <span className="text-gold font-extrabold">R150</span> this month, the app has
+                    essentially paid for itself.
+                  </p>
+                )}
+              </div>
+              <span className="text-ink-faint font-display font-extrabold text-lg shrink-0 mt-1">
+                →
+              </span>
+            </div>
+
+            <div className="relative mt-3.5 grid grid-cols-2 gap-2">
+              <div className="rounded-2xl bg-bg-deep/80 border border-edge px-3 py-2.5">
+                <p className="text-[9px] font-extrabold uppercase tracking-wider text-ink-faint">
+                  Your code
+                </p>
+                <p className="font-display font-extrabold tracking-[0.18em] text-sm mt-0.5 truncate">
+                  {referralCode}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-aqua/10 border border-aqua/35 px-3 py-2.5">
+                <p className="text-[9px] font-extrabold uppercase tracking-wider text-aqua">
+                  Refer a friend
+                </p>
+                <p className="font-display font-extrabold text-sm mt-0.5 text-lime">
+                  {friendReward ? 'R50 unlocked' : 'R50 off'}
+                </p>
+              </div>
+            </div>
+
+            <p className="relative text-[11px] font-bold text-center text-ink-faint mt-3">
+              {plusStatus === 'active'
+                ? 'Tap to view membership & share link'
+                : 'Tap to activate · share your code · unlock Plus'}
+            </p>
+          </Card>
+        </div>
+      </Link>
+
       {/* Links */}
       <div className="flex flex-col gap-2 mb-5">
-        <Link to="/plus">
-          <div
-            className="rounded-[24px] p-[2px]"
-            style={{ background: 'linear-gradient(120deg,#7c3aed,#22d3ee,#a3e635)' }}
-          >
-            <Card className="flex items-center justify-between py-3 !border-transparent">
-              <span className="font-display font-extrabold text-sm">
-                ⭐ PennyPlay Plus
-                <span
-                  className={`ml-2 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                    plusStatus === 'active'
-                      ? 'bg-lime/15 text-lime'
-                      : plusStatus === 'expired'
-                        ? 'bg-coral/15 text-coral'
-                        : 'bg-gold/15 text-gold'
-                  }`}
-                >
-                  {plusStatus === 'active'
-                    ? 'active'
-                    : plusStatus === 'expired'
-                      ? 'renew'
-                      : 'R200 / year'}
-                </span>
-              </span>
-              <span className="text-ink-faint">→</span>
-            </Card>
-          </div>
-        </Link>
         <Link to="/profile/trophies">
           <Card className="flex items-center justify-between py-3">
             <span className="font-display font-extrabold text-sm">
