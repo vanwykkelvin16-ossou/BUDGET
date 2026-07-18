@@ -111,7 +111,11 @@ export function App() {
     )
   }
 
-  const fullScreen = location.pathname === '/add' || location.pathname === '/recap'
+  // Focused flows keep the tab bar away so the main CTA stays visible.
+  const fullScreen =
+    location.pathname === '/add' ||
+    location.pathname === '/recap' ||
+    location.pathname === '/plus'
 
   return (
     <>
