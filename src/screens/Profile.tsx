@@ -3,7 +3,7 @@
  * settings and the Phase-2 coming-soon stubs.
  */
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAppStore } from '../state/appStore'
 import { levelProgress, RANKS, unlockedThemes } from '../lib/gamification/levels'
@@ -19,13 +19,15 @@ import { Randy } from '../components/ui/Randy'
 import { RankCrest } from '../components/ui/RankCrest'
 import {
   ensureNotificationPermission,
+  getNotificationPermission,
+  isNativeApp,
   loadNotificationPrefs,
-  notificationPermission,
   notificationsSupported,
   saveNotificationPrefs,
   showSystemNotification,
   type NotificationPrefs,
 } from '../lib/notifications'
+import { syncScheduledReminders } from '../lib/reminders'
 import { loadMembership, membershipStatus } from '../lib/membership'
 
 const PHASE2 = [
@@ -48,20 +50,25 @@ export function Profile() {
   const [stub, setStub] = useState<(typeof PHASE2)[number] | null>(null)
   const [confirmReset, setConfirmReset] = useState(false)
   const [notifyPrefs, setNotifyPrefs] = useState<NotificationPrefs>(loadNotificationPrefs)
-  const [notifyBlocked, setNotifyBlocked] = useState(
-    () => notificationPermission() === 'denied',
-  )
+  const [notifyBlocked, setNotifyBlocked] = useState(false)
   const [testSent, setTestSent] = useState(false)
+
+  useEffect(() => {
+    void getNotificationPermission().then((p) => setNotifyBlocked(p === 'denied'))
+  }, [])
 
   async function changeNotify(patch: Partial<NotificationPrefs>) {
     let next = { ...notifyPrefs, ...patch }
     if (patch.enabled) {
       const granted = await ensureNotificationPermission()
-      setNotifyBlocked(notificationPermission() === 'denied')
+      setNotifyBlocked((await getNotificationPermission()) === 'denied')
       if (!granted) next = { ...next, enabled: false }
     }
     setNotifyPrefs(next)
     saveNotificationPrefs(next)
+    // Keep the OS-scheduled weekly/monthly reminders in step (native apps).
+    const payDate = useAppStore.getState().data.profile?.payDate
+    if (payDate) void syncScheduledReminders(next, payDate, todaySAST())
   }
 
   async function sendTestNotification() {
@@ -265,6 +272,26 @@ export function Profile() {
             {notifyPrefs.enabled && (
               <>
                 <ToggleRow
+                  label="📅 Weekly budget check-in (Mon 08:00)"
+                  value={notifyPrefs.weeklyBudgetReminder}
+                  onChange={(v) => void changeNotify({ weeklyBudgetReminder: v })}
+                />
+                <ToggleRow
+                  label="🗓️ Monthly budget planner (pay day)"
+                  value={notifyPrefs.monthlyBudgetReminder}
+                  onChange={(v) => void changeNotify({ monthlyBudgetReminder: v })}
+                />
+                <ToggleRow
+                  label="🌟 Weekly recap (Sun 17:00)"
+                  value={notifyPrefs.weeklyRecap}
+                  onChange={(v) => void changeNotify({ weeklyRecap: v })}
+                />
+                <ToggleRow
+                  label="🏆 Achievement alerts"
+                  value={notifyPrefs.achievementAlerts}
+                  onChange={(v) => void changeNotify({ achievementAlerts: v })}
+                />
+                <ToggleRow
                   label="💰 Pay day alert"
                   value={notifyPrefs.paydayAlert}
                   onChange={(v) => void changeNotify({ paydayAlert: v })}
@@ -292,8 +319,9 @@ export function Profile() {
               </>
             )}
             <p className="text-[10px] text-ink-faint font-bold py-2.5">
-              Nudges show while PennyPlay is open or installed on your phone. Everything stays on
-              this device.
+              {isNativeApp()
+                ? 'Weekly and monthly reminders are scheduled on your phone and arrive even when PennyPlay is closed. Everything stays on this device.'
+                : 'Nudges show while PennyPlay is open or installed on your phone. Everything stays on this device.'}
             </p>
           </>
         ) : (
