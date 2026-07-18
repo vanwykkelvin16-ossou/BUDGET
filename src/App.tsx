@@ -2,7 +2,9 @@ import { useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAppStore } from './state/appStore'
 import { STORAGE_KEY } from './lib/data/store'
-import { runNotificationSweep } from './lib/notifications'
+import { loadNotificationPrefs, runNotificationSweep } from './lib/notifications'
+import { cancelScheduledReminders, syncScheduledReminders } from './lib/reminders'
+import { todaySAST } from './lib/dates'
 import { captureIncomingRef } from './lib/referral'
 
 // A share link (?ref=CODE) may land on any route — remember whose it was
@@ -76,6 +78,22 @@ export function App() {
   useEffect(() => {
     if (loaded && data.profile) void runNotificationSweep(data)
   }, [loaded, data])
+
+  // Native apps: keep the OS-scheduled weekly/monthly budget reminders in
+  // step with the profile. Re-runs when the pay date changes so the monthly
+  // reminder chain follows the new cycle, and on every boot so the rolling
+  // one-shot occurrences are re-anchored. No-op on the web.
+  const payDate = profile?.payDate
+  const isDemo = profile?.isDemo
+  useEffect(() => {
+    if (!loaded) return
+    if (!payDate || isDemo) {
+      // No real profile (reset, onboarding, demo) — stale reminders go.
+      void cancelScheduledReminders()
+      return
+    }
+    void syncScheduledReminders(loadNotificationPrefs(), payDate, todaySAST())
+  }, [loaded, payDate, isDemo])
 
   // Apply theme + dark mode to <html> whenever the profile changes.
   useEffect(() => {
