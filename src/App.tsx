@@ -45,7 +45,7 @@ export function App() {
   }, [init])
 
   // After auth/onboarding: mirror Plus membership + referral unlocks from
-  // Supabase so the 35s gate and /plus screen see the server truth.
+  // Supabase so the 30s subscription gate and /plus screen see the server truth.
   useEffect(() => {
     if (!loaded || !profile || profile.isDemo) return
     void hydrateMembershipFromServer()

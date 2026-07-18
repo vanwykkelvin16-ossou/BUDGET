@@ -17,7 +17,8 @@ import {
   PLUS_PRICE_CENTS,
   type Membership,
 } from '../lib/membership'
-import { payForYear } from '../lib/plusCheckout'
+import { clearPaymentPending, payForYear } from '../lib/plusCheckout'
+import { clearLocalDemo } from '../lib/data/demoLocal'
 import {
   hasShared,
   myReferralCode,
@@ -98,16 +99,19 @@ export function Plus() {
       setRefCode(myReferralCode())
 
       // After PayFast return, poll briefly until ITN writes the membership.
+      if (cancelled) clearPaymentPending()
       if (!justPaid) return
       for (let i = 0; i < 8; i++) {
         await new Promise((r) => window.setTimeout(r, 1500))
         const again = await hydrateMembershipFromServer()
         if (again && membershipStatus(again) === 'active') {
+          clearPaymentPending()
           setMembership(again)
           return
         }
       }
     })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [justPaid])
 
   async function pay() {
@@ -120,7 +124,15 @@ export function Plus() {
       email: profile?.email || undefined,
       name: profile?.displayName || undefined,
     })
-    if (result !== 'redirected') setMembership(result)
+    if (result === 'redirected') return // browser is leaving for PayFast
+    if (result === 'needs-account') {
+      // A subscription lives on an account — route the signed-out demo
+      // explorer through sign-up first, then they pay from their account.
+      await clearLocalDemo()
+      await useAppStore.getState().reload()
+      return
+    }
+    setMembership(result)
     setBusy(false)
   }
 

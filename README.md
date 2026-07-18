@@ -13,6 +13,16 @@ npm run build      # production build + PWA service worker
 
 The app runs **fully local by default** — no backend needed. Pick **“Try demo mode”** on the welcome screen to load three months of realistic ZAR data, or set up your own budget in under a minute.
 
+## PennyPlay Plus — the subscription workflow
+
+PennyPlay is a paid app: **R200/year**, billed yearly via PayFast and **auto-renewing** every year. The workflow, front to back:
+
+- **Every unpaid session is gated.** Demo explorers and freshly activated accounts alike get a **30-second free look** (a countdown pill shows at the top), then the subscription paywall appears. It cannot be dismissed — the year must be paid before the app opens up. The explore window is persisted, so refreshing doesn’t restart it.
+- **Referral discount right in the pop-up.** Enter a friend’s code (or arrive via their `?ref=` share link) and the first year drops to **R150**. Referrers earn the same R50 off when a friend signs up. Codes are validated server-side in Supabase mode.
+- **Demo → account → payment.** A real subscription must live on an account, so a signed-out demo explorer who taps Subscribe is routed through sign-up first; their referral code survives the trip and applies right after.
+- **Payment confirmation is server-side.** With PayFast merchant keys set (`VITE_PAYFAST_MERCHANT_ID/KEY`), Subscribe redirects to a yearly auto-renew PayFast checkout; the `payfast-itn` edge function verifies the notification (status, amount, signature, PayFast postback) and writes the `memberships` row — the only writer. After the redirect returns, the gate polls until the ITN lands (“Confirming your payment…”) instead of blocking the payer. Without merchant keys the flow runs in clearly-labelled test mode so it can be tried end to end.
+- **Renewal every year.** The checkout is a PayFast subscription (`frequency: annual`, indefinite cycles) charging R200 each year; each renewal ITN extends `paid_until`, capped at one year from today. A lapsed membership brings the paywall straight back until resubscribed.
+
 ## The budgeting engine
 
 - **50/30/20 baseline** (Needs/Wants/Savings), fully adjustable with sliders. Allocation uses largest-remainder rounding so every cent of income lands in exactly one bucket.
