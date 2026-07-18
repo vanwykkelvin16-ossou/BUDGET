@@ -29,3 +29,7 @@ secret = ""
 
 [functions.award-xp]
 verify_jwt = true
+
+# PayFast posts ITNs without a user JWT — must accept anonymous calls.
+[functions.payfast-itn]
+verify_jwt = false

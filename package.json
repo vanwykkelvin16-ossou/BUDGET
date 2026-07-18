@@ -12,6 +12,7 @@
     "build:pages": "vite build --config vite.config.pages.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "verify:plus": "node scripts/verify-plus-workflow.mjs",
     "icons": "node scripts/make-icons.mjs"
   },
   "dependencies": {

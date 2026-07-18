@@ -120,11 +120,14 @@ export function Dashboard() {
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h1 className="font-display font-extrabold text-xl truncate">
-              Hi {profile.displayName.split(' ')[0]} 👋
+              Hi {profile.displayName.split(' ')[0]}
               {profile.isDemo && (
-                <span className="ml-2 text-[10px] align-middle px-2 py-0.5 rounded-full bg-aqua/20 text-aqua font-bold uppercase tracking-wider">
-                  demo
-                </span>
+                <Link
+                  to="/plus"
+                  className="ml-2 text-[10px] align-middle px-2 py-0.5 rounded-full bg-aqua/20 text-aqua font-bold uppercase tracking-wider"
+                >
+                  demo · unlock
+                </Link>
               )}
             </h1>
             <p className="text-[11px] text-ink-faint font-bold">

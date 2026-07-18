@@ -12,6 +12,8 @@ import { TabBar } from './components/layout/TabBar'
 import { JuiceHost } from './components/juice/JuiceHost'
 import { PlusGate } from './components/PlusGate'
 import { Randy } from './components/ui/Randy'
+import { hydrateMembershipFromServer } from './lib/membershipSync'
+import { syncReferralRewards } from './lib/referral'
 
 import { Auth } from './screens/Auth'
 import { Onboarding } from './screens/Onboarding'
@@ -27,6 +29,7 @@ import { TrophyCabinet } from './screens/TrophyCabinet'
 import { SeasonRecap } from './screens/SeasonRecap'
 import { Settings } from './screens/Settings'
 import { Privacy } from './screens/Privacy'
+import { Terms } from './screens/Terms'
 import { Plus } from './screens/Plus'
 
 export function App() {
@@ -40,6 +43,14 @@ export function App() {
   useEffect(() => {
     void init()
   }, [init])
+
+  // After auth/onboarding: mirror Plus membership + referral unlocks from
+  // Supabase so the 30s subscription gate and /plus screen see the server truth.
+  useEffect(() => {
+    if (!loaded || !profile || profile.isDemo) return
+    void hydrateMembershipFromServer()
+    void syncReferralRewards()
+  }, [loaded, profile])
 
   // Every navigation lands at the top of the new screen — no inherited
   // scroll position from the page you came from.
@@ -94,16 +105,31 @@ export function App() {
     )
   }
 
+  // Store reviewers open policy URLs cold — no account or profile required.
+  const legalRoutes = (
+    <>
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
+    </>
+  )
+
   if (needsAuth) {
-    return <Auth />
+    return (
+      <>
+        <Routes>
+          {legalRoutes}
+          <Route path="*" element={<Auth />} />
+        </Routes>
+        <JuiceHost />
+      </>
+    )
   }
 
   if (!profile) {
     return (
       <>
         <Routes>
-          {/* Store reviewers open the policy URL cold — no profile needed. */}
-          <Route path="/privacy" element={<Privacy />} />
+          {legalRoutes}
           <Route path="*" element={<Onboarding />} />
         </Routes>
         <JuiceHost />
@@ -129,6 +155,7 @@ export function App() {
         <Route path="/recap" element={<SeasonRecap />} />
         <Route path="/plus" element={<Plus />} />
         <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {!fullScreen && <TabBar />}

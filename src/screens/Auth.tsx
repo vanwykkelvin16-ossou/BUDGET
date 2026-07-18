@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAppStore } from '../state/appStore'
 import { getSupabaseClient } from '../lib/supabaseClient'
 import { referredBy } from '../lib/referral'
@@ -14,6 +15,7 @@ import { Randy } from '../components/ui/Randy'
 
 export function Auth() {
   const reload = useAppStore((s) => s.reload)
+  const startDemo = useAppStore((s) => s.startDemo)
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -68,6 +70,8 @@ export function Auth() {
   async function google() {
     if (!supabase) return
     setError(null)
+    // Share-link ?ref= stays in localStorage; syncReferralRewards applies
+    // it after Google returns with a session.
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin },
@@ -169,10 +173,28 @@ export function Auth() {
         >
           {mode === 'signin' ? 'Sign in' : 'Sign up'}
         </Button3D>
+        {mode === 'signup' && (
+          <p className="text-center text-[10px] text-ink-faint font-bold leading-relaxed">
+            By creating an account you agree to the{' '}
+            <Link to="/terms" className="underline">
+              Terms
+            </Link>{' '}
+            and{' '}
+            <Link to="/privacy" className="underline">
+              Privacy policy
+            </Link>
+            .
+          </p>
+        )}
         <Button3D full variant="ghost" onClick={() => void google()}>
           Continue with Google
         </Button3D>
       </Card>
+      <div className="mt-4">
+        <Button3D full variant="ghost" onClick={() => void startDemo()}>
+          Try demo mode first
+        </Button3D>
+      </div>
       <p className="text-center text-[10px] text-ink-faint font-bold mt-4">
         Google sign-in needs the provider enabled in your Supabase dashboard.
       </p>

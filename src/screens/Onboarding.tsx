@@ -174,12 +174,9 @@ export function Onboarding() {
                 <Button3D size="lg" full onClick={() => setStep('name')}>
                   Set up in 60 seconds
                 </Button3D>
-                {/* Demo data stays on-device, so it's a local-mode feature. */}
-                {!isSupabaseConfigured() && (
-                  <Button3D variant="ghost" full onClick={() => void startDemo()}>
-                    👀 Try demo mode first
-                  </Button3D>
-                )}
+                <Button3D variant="ghost" full onClick={() => void startDemo()}>
+                  Try demo mode first
+                </Button3D>
               </div>
             </div>
           )}
