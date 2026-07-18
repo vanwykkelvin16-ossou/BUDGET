@@ -15,8 +15,10 @@
     "icons": "node scripts/make-icons.mjs"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.2",
     "@capacitor/core": "^8.4.1",
     "@capacitor/ios": "^8.4.1",
+    "@capacitor/local-notifications": "^8.2.1",
     "@fontsource/baloo-2": "^5.2.5",
     "@fontsource/nunito": "^5.2.5",
     "@supabase/supabase-js": "^2.50.0",
