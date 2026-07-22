@@ -35,7 +35,7 @@ import { payfastEnv } from '../_shared/payfastEnv.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Headers': 'authorization, content-type, x-client-info, apikey',
 }
 
 const json = (body: unknown, status = 200) =>
