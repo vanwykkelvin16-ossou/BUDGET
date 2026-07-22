@@ -1,11 +1,10 @@
 /**
- * PennyPlay Plus — the pricing page. A world-class-but-honest pricing
- * table (free look vs monthly vs yearly with features, pros AND cons),
- * the member's current status with days-left meter, cancel/upgrade
- * controls, payment confirmation states (confirming → active / failed /
- * cancelled) and the payment history. Real checkout via the
- * payfast-checkout edge function (or legacy client URL); clearly-labelled
- * test mode otherwise.
+ * PennyPlay Plus — the pricing page. One paid plan: yearly auto-renew at
+ * R200/year (with the free look as the alternative), shown with features,
+ * honest pros AND cons, the member's current status with days-left meter,
+ * cancel controls, payment confirmation states (confirming → active /
+ * failed / cancelled) and payment history. Real checkout via the
+ * payfast-checkout edge function; clearly-labelled test mode otherwise.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -15,14 +14,12 @@ import {
   daysLeft,
   loadMembership,
   membershipStatus,
-  MONTHLY_PRICE_CENTS,
   payfastConfig,
   PLUS_DAYS,
   PLUS_PRICE_CENTS,
   type Membership,
-  type PlanId,
 } from '../lib/membership'
-import { FEATURE_MATRIX, TIERS, YEARLY_SAVING_CENTS, type PlanTier } from '../lib/plans'
+import { FEATURE_MATRIX, TIERS, type PlanTier } from '../lib/plans'
 import { payForPlan } from '../lib/plusCheckout'
 import {
   cancelPlusSubscription,
@@ -55,7 +52,7 @@ export function Plus() {
   const profile = useAppStore((s) => s.data.profile)
   const [membership, setMembership] = useState<Membership | null>(loadMembership)
   const [payments, setPayments] = useState<PaymentRecord[]>([])
-  const [busyPlan, setBusyPlan] = useState<PlanId | null>(null)
+  const [busy, setBusy] = useState(false)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [params] = useSearchParams()
   const justPaid = params.get('paid') === '1'
@@ -80,7 +77,7 @@ export function Plus() {
   const [reward, setReward] = useState(rewardUnlocked)
   const [shareNote, setShareNote] = useState<string | null>(null)
   const isFirstPayment = membership === null
-  const yearlyPriceCents = plusPriceCents({
+  const priceCents = plusPriceCents({
     fullPriceCents: PLUS_PRICE_CENTS,
     unlocked: reward,
     isFirstPayment,
@@ -140,14 +137,14 @@ export function Plus() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [justPaid, connected])
 
-  async function pay(plan: PlanId) {
-    if (busyPlan) return
-    setBusyPlan(plan)
+  async function pay() {
+    if (busy) return
+    setBusy(true)
     setCheckoutError(null)
     const result = await payForPlan({
-      plan,
-      priceCents: plan === 'yearly' ? yearlyPriceCents : MONTHLY_PRICE_CENTS,
-      referralDiscount: plan === 'yearly' && reward && isFirstPayment,
+      plan: 'yearly',
+      priceCents,
+      referralDiscount: reward && isFirstPayment,
       current: membership,
       email: profile?.email || undefined,
       name: profile?.displayName || undefined,
@@ -155,7 +152,7 @@ export function Plus() {
     if (result === 'redirected') return // browser is leaving for PayFast
     if (typeof result === 'object' && 'error' in result) setCheckoutError(result.error)
     else setMembership(result)
-    setBusyPlan(null)
+    setBusy(false)
   }
 
   async function confirmCancel() {
@@ -232,7 +229,7 @@ export function Plus() {
       {wasCancelled && status !== 'active' && !confirming && (
         <Card className="mb-4">
           <p className="text-xs text-ink-soft font-bold">
-            Payment cancelled — no charge. Whenever you're ready, the plans are below.
+            Payment cancelled — no charge. Whenever you're ready, Plus is below.
           </p>
         </Card>
       )}
@@ -270,7 +267,7 @@ export function Plus() {
                     Your plan
                   </p>
                   <p className="font-display font-extrabold text-lg leading-tight">
-                    {membership.plan === 'monthly' ? '🌙 Plus Monthly' : '⭐ Plus Yearly'}
+                    ⭐ PennyPlay Plus
                     {membership.paymentRef === 'test-mode' && (
                       <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-gold/15 text-gold font-bold uppercase">
                         test
@@ -296,7 +293,7 @@ export function Plus() {
                   <p className="text-[11px] font-extrabold text-ink-soft mb-1.5">
                     {isCancelled ? (
                       <>
-                        Auto-billing stopped — access until{' '}
+                        Auto-renew stopped — access until{' '}
                         <b className="text-ink">
                           {formatDateLong(membership.paidUntil)} {membership.paidUntil.slice(0, 4)}
                         </b>{' '}
@@ -304,7 +301,7 @@ export function Plus() {
                       </>
                     ) : (
                       <>
-                        {membership.plan === 'monthly' ? 'Renews around' : 'Paid up to'}{' '}
+                        Renews around{' '}
                         <b className="text-ink">
                           {formatDateLong(membership.paidUntil)} {membership.paidUntil.slice(0, 4)}
                         </b>{' '}
@@ -318,54 +315,45 @@ export function Plus() {
                       style={{
                         width: `${Math.max(
                           3,
-                          Math.min(
-                            100,
-                            Math.round(
-                              (remainingDays / (membership.plan === 'monthly' ? 33 : PLUS_DAYS)) * 100,
-                            ),
-                          ),
+                          Math.min(100, Math.round((remainingDays / PLUS_DAYS) * 100)),
                         )}%`,
                       }}
                     />
                   </div>
+                  {!isCancelled ? (
+                    <div className="mt-4">
+                      <Button3D full variant="ghost" size="sm" onClick={() => setCancelSheet(true)}>
+                        Cancel auto-renew
+                      </Button3D>
+                      <p className="text-[10px] text-ink-faint font-bold text-center mt-2">
+                        You'll keep full access until the end of your paid year.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-4">
+                      <Button3D full variant="gold" size="md" disabled={busy} onClick={() => void pay()}>
+                        {busy ? 'Opening secure checkout…' : 'Restart auto-renew — R200 / year'}
+                      </Button3D>
+                      <p className="text-[10px] text-ink-faint font-bold text-center mt-2">
+                        Your remaining days carry over when you restart.
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <p className="text-xs text-coral font-extrabold mt-2">
-                  Your plan lapsed on {formatDateLong(membership.paidUntil)}{' '}
-                  {membership.paidUntil.slice(0, 4)} — pick a plan below to jump back in.
-                </p>
-              )}
-
-              {/* Plan management */}
-              {status === 'active' && membership.plan === 'monthly' && (
-                <div className="flex flex-col gap-2 mt-4">
-                  <Button3D
-                    full
-                    variant="gold"
-                    size="md"
-                    disabled={busyPlan !== null}
-                    onClick={() => void pay('yearly')}
-                  >
-                    ⭐ Upgrade to Yearly — save R{YEARLY_SAVING_CENTS / 100} a year
-                  </Button3D>
-                  {!isCancelled && (
-                    <Button3D full variant="ghost" size="sm" onClick={() => setCancelSheet(true)}>
-                      Cancel subscription
+                <div className="mt-3">
+                  <p className="text-xs text-coral font-extrabold">
+                    Your plan lapsed on {formatDateLong(membership.paidUntil)}{' '}
+                    {membership.paidUntil.slice(0, 4)} — rejoin below to jump back in.
+                  </p>
+                  <div className="mt-3">
+                    <Button3D full variant="gold" size="md" disabled={busy} onClick={() => void pay()}>
+                      {busy
+                        ? 'Opening secure checkout…'
+                        : `Renew — ${formatZAR(priceCents, { showCents: false })} / year`}
                     </Button3D>
-                  )}
-                  {isCancelled && (
-                    <p className="text-[10px] text-ink-faint font-bold text-center">
-                      Changed your mind? Pick a plan below to restart — your remaining days carry
-                      over.
-                    </p>
-                  )}
+                  </div>
                 </div>
-              )}
-              {status === 'active' && membership.plan === 'yearly' && (
-                <p className="text-[11px] text-ink-soft font-semibold mt-3 text-center">
-                  🎉 You're set for the year. No auto-renewal — renewal opens here when your year
-                  is up.
-                </p>
               )}
             </div>
           </Card>
@@ -373,13 +361,15 @@ export function Plus() {
       )}
 
       {/* ----- Pricing table ----- */}
-      {!(status === 'active' && membership?.plan === 'yearly') && (
+      {!(status === 'active' && !isCancelled) && status !== 'expired' && (
         <>
           <div className="text-center mt-6 mb-4">
             <Randy mood="happy" size={64} className="mx-auto" />
-            <h2 className="font-display font-extrabold text-xl mt-2">Pick your plan</h2>
+            <h2 className="font-display font-extrabold text-xl mt-2">
+              {status === 'active' ? 'Restart Plus' : 'Join PennyPlay Plus'}
+            </h2>
             <p className="text-xs text-ink-soft font-semibold mt-1 max-w-[36ch] mx-auto">
-              Same full app on both paid plans — the only difference is how you pay.
+              One plan. R200 a year. Auto-renews — cancel anytime.
             </p>
           </div>
 
@@ -388,20 +378,20 @@ export function Plus() {
               <TierCard
                 key={t.id}
                 tier={t}
-                currentPlan={status === 'active' ? membership?.plan ?? null : null}
-                busy={busyPlan}
+                isMember={status === 'active'}
+                busy={busy}
                 displayPriceCents={
-                  t.id === 'yearly' && reward && isFirstPayment ? yearlyPriceCents : t.priceCents
+                  t.id === 'yearly' && reward && isFirstPayment ? priceCents : t.priceCents
                 }
                 discounted={t.id === 'yearly' && reward && isFirstPayment}
-                onPay={(plan) => void pay(plan)}
+                onPay={() => void pay()}
               />
             ))}
           </div>
           <p className="text-center text-[10px] text-ink-faint font-bold mb-5">
             {paymentsConfigured
               ? 'Secure checkout by PayFast — cards, EFT & more. Your card details never touch PennyPlay.'
-              : 'Test mode: payments aren’t connected yet, so plans activate a trial on this device.'}
+              : 'Test mode: payments aren’t connected yet, so Plus activates a trial year on this device.'}
           </p>
 
           {/* Feature comparison matrix */}
@@ -412,10 +402,9 @@ export function Plus() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="text-[9px] font-extrabold uppercase tracking-wider text-ink-faint">
-                  <th className="py-1.5 pr-1 font-extrabold w-[46%]">Feature</th>
+                  <th className="py-1.5 pr-1 font-extrabold w-[55%]">Feature</th>
                   <th className="py-1.5 text-center">Free</th>
-                  <th className="py-1.5 text-center">Monthly</th>
-                  <th className="py-1.5 text-center text-gold">Yearly</th>
+                  <th className="py-1.5 text-center text-gold">Plus</th>
                 </tr>
               </thead>
               <tbody>
@@ -425,7 +414,6 @@ export function Plus() {
                       {row.label}
                     </td>
                     <MatrixCell value={row.free} />
-                    <MatrixCell value={row.monthly} />
                     <MatrixCell value={row.yearly} />
                   </tr>
                 ))}
@@ -497,13 +485,16 @@ export function Plus() {
           </p>
           <div className="flex flex-col divide-y divide-edge/60">
             {payments.map((p) => (
-              <div key={`${p.pfPaymentId}-${p.status}-${p.createdAt}`} className="flex items-center gap-3 py-2">
+              <div
+                key={`${p.pfPaymentId}-${p.status}-${p.createdAt}`}
+                className="flex items-center gap-3 py-2"
+              >
                 <span aria-hidden className="text-base">
                   {p.status === 'complete' ? '✅' : p.status === 'cancelled' ? '🛑' : '⚠️'}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-extrabold leading-tight truncate">
-                    {p.plan === 'monthly' ? 'Plus Monthly' : 'Plus Yearly'}
+                    PennyPlay Plus
                     <span className="text-ink-faint font-bold"> · {p.createdAt.slice(0, 10)}</span>
                   </p>
                   <p
@@ -518,7 +509,7 @@ export function Plus() {
                     {p.status === 'complete'
                       ? 'Paid'
                       : p.status === 'cancelled'
-                        ? 'Subscription cancelled'
+                        ? 'Auto-renew cancelled'
                         : 'Failed — not charged'}
                   </p>
                 </div>
@@ -545,31 +536,33 @@ export function Plus() {
             activates anything.
           </li>
           <li>
-            🌙 Monthly auto-renews via PayFast until you cancel. Cancel in one tap here — you keep
-            access to the end of the period you paid for.
+            ⭐ Plus is <b className="text-ink">R200 a year</b> and auto-renews via PayFast each
+            year until you cancel. Cancel in one tap here — you keep access to the end of the year
+            you already paid for.
           </li>
-          <li>⭐ Yearly is a single payment. It never auto-renews; you choose when to pay again.</li>
-          <li>💳 A failed charge never removes access you already paid for.</li>
-          <li>📈 Upgrading from Monthly to Yearly stops the monthly billing automatically.</li>
+          <li>💳 A failed renewal never removes access you already paid for.</li>
+          <li>🎁 A friend who signs up with your link unlocks R50 off your first year only.</li>
         </ul>
       </Card>
 
       {/* ----- Cancel confirmation ----- */}
-      <Sheet open={cancelSheet} onClose={() => setCancelSheet(false)} title="Cancel Plus Monthly?">
+      <Sheet open={cancelSheet} onClose={() => setCancelSheet(false)} title="Cancel auto-renew?">
         <div className="flex flex-col gap-3">
           <p className="text-sm text-ink-soft">
-            This stops the R25 monthly billing at PayFast. You keep full access until{' '}
+            This stops the yearly R200 auto-renew at PayFast. You keep full access until{' '}
             <b className="text-ink">
-              {membership ? `${formatDateLong(membership.paidUntil)} ${membership.paidUntil.slice(0, 4)}` : ''}
+              {membership
+                ? `${formatDateLong(membership.paidUntil)} ${membership.paidUntil.slice(0, 4)}`
+                : ''}
             </b>
             , then the app locks until you subscribe again. Nothing already paid is lost.
           </p>
           {cancelError && <p className="text-xs text-coral font-bold">{cancelError}</p>}
           <Button3D variant="coral" full disabled={cancelBusy} onClick={() => void confirmCancel()}>
-            {cancelBusy ? 'Cancelling…' : 'Yes, stop billing'}
+            {cancelBusy ? 'Cancelling…' : 'Yes, stop auto-renew'}
           </Button3D>
           <Button3D variant="ghost" full onClick={() => setCancelSheet(false)}>
-            Keep my subscription
+            Keep auto-renewing
           </Button3D>
         </div>
       </Sheet>
@@ -581,21 +574,20 @@ export function Plus() {
 
 function TierCard({
   tier,
-  currentPlan,
+  isMember,
   busy,
   displayPriceCents,
   discounted,
   onPay,
 }: {
   tier: PlanTier
-  currentPlan: PlanId | null
-  busy: PlanId | null
+  isMember: boolean
+  busy: boolean
   displayPriceCents: number
   discounted: boolean
-  onPay: (plan: PlanId) => void
+  onPay: () => void
 }) {
   const isPaid = tier.id !== 'free'
-  const isCurrent = isPaid && currentPlan === tier.id
   const highlight = tier.badge !== undefined
 
   const inner = (
@@ -605,7 +597,7 @@ function TierCard({
           className="absolute top-3 right-3 text-[9px] px-2.5 py-1 rounded-full font-extrabold
                      uppercase tracking-wider bg-gold/15 text-gold border border-gold/40"
         >
-          🏆 {tier.badge}
+          🔁 {tier.badge}
         </span>
       )}
       <div className="flex items-center gap-3">
@@ -670,7 +662,7 @@ function TierCard({
 
       {isPaid && (
         <div className="mt-3.5">
-          {isCurrent ? (
+          {isMember ? (
             <p
               className="text-center text-[11px] font-extrabold text-lime bg-lime/10 border border-lime/30
                          rounded-2xl py-2.5"
@@ -682,10 +674,10 @@ function TierCard({
               full
               size="md"
               variant={tier.ctaVariant ?? 'gold'}
-              disabled={busy !== null}
-              onClick={() => onPay(tier.id as PlanId)}
+              disabled={busy}
+              onClick={onPay}
             >
-              {busy === tier.id ? 'Opening secure checkout…' : tier.cta}
+              {busy ? 'Opening secure checkout…' : tier.cta}
             </Button3D>
           )}
         </div>

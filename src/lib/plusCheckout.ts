@@ -3,14 +3,14 @@
  * 45-second gate. Resolution order:
  *
  *   1. payfast-checkout edge function → signed, server-priced form POST
- *      (the only path that can sell the monthly subscription)
- *   2. legacy client-built checkout URL from VITE_PAYFAST_* env (yearly)
+ *      (the only path that can sell the yearly auto-renew subscription)
+ *   2. legacy client-built checkout URL from VITE_PAYFAST_* env (unsigned
+ *      fallback — cannot create a real PayFast subscription)
  *   3. clearly-labelled test mode: activates locally on this device
  */
 
 import { getSupabaseClient } from './supabaseClient'
 import {
-  monthFrom,
   payfastCheckoutUrl,
   payfastConfig,
   saveMembership,
@@ -24,24 +24,33 @@ import { todaySAST } from './dates'
 export type CheckoutResult = 'redirected' | Membership | { error: string }
 
 export async function payForPlan(params: {
-  plan: PlanId
+  plan?: PlanId
   priceCents: number
   referralDiscount: boolean
   current: Membership | null
   email?: string
   name?: string
 }): Promise<CheckoutResult> {
-  // 1) Server-signed checkout (required for monthly, best for yearly).
-  const server = await requestServerCheckout(params.plan)
+  const plan: PlanId = params.plan ?? 'yearly'
+
+  // 1) Server-signed checkout (required for the yearly auto-renew
+  //    subscription — PayFast only accepts signed subscription requests).
+  const server = await requestServerCheckout(plan)
   if (server !== 'unavailable' && server !== 'not-configured') {
     submitCheckoutForm(server)
     return 'redirected'
   }
 
-  // 2) Legacy client-side checkout — yearly only (subscriptions need the
-  //    server-held passphrase to sign).
+  // 2) Legacy client-side checkout — unsigned yearly URL. Prefer the
+  //    edge function; this path cannot start a real PayFast subscription.
   const config = payfastConfig()
-  if (config && params.plan === 'yearly') {
+  if (config) {
+    if (server === 'not-configured') {
+      return {
+        error:
+          'Yearly auto-renew needs the payment server (payfast-checkout + PAYFAST_PASSPHRASE) configured.',
+      }
+    }
     const supabase = getSupabaseClient()
     const userId = supabase ? (await supabase.auth.getUser()).data.user?.id : undefined
     window.location.href = payfastCheckoutUrl({
@@ -55,24 +64,14 @@ export async function payForPlan(params: {
     })
     return 'redirected'
   }
-  if (config && params.plan === 'monthly') {
-    return {
-      error:
-        'Monthly billing needs the payment server (payfast-checkout) configured — the yearly plan is available now.',
-    }
-  }
 
   // 3) Test mode — no merchant keys configured anywhere yet.
-  const today = todaySAST()
   const activated: Membership = {
-    paidUntil:
-      params.plan === 'monthly'
-        ? monthFrom(params.current, today)
-        : yearFrom(params.current, today),
+    paidUntil: yearFrom(params.current, todaySAST()),
     paymentRef: 'test-mode',
     amountCents: params.priceCents,
     activatedAt: new Date().toISOString(),
-    plan: params.plan,
+    plan: 'yearly',
     billing: 'active',
   }
   saveMembership(activated)

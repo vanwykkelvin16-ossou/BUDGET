@@ -5,15 +5,18 @@
  * rand: the ITN handler independently re-checks the amount against the
  * same plan table.
  *
- * POST JSON { plan: 'monthly' | 'yearly', origin: string }
+ * PennyPlay Plus is a yearly auto-renewing PayFast subscription (R200/year).
+ * A passphrase is required — PayFast rejects unsigned subscription requests.
+ *
+ * POST JSON { plan: 'yearly', origin: string }
  *   → { configured: true, host, fields }  — client POSTs `fields` to
  *     https://{host}/eng/process as a form
  *   → { configured: false }               — merchant env not set; the
- *     client falls back to its legacy/test-mode flow
+ *     client falls back to its test-mode flow
  *
  * Deploy: supabase functions deploy payfast-checkout
  * Env:    PAYFAST_MERCHANT_ID, PAYFAST_MERCHANT_KEY,
- *         PAYFAST_PASSPHRASE (required for the monthly subscription),
+ *         PAYFAST_PASSPHRASE (required for yearly auto-renew),
  *         PAYFAST_SANDBOX=1 while testing
  */
 
@@ -25,7 +28,6 @@ import {
   expectedAmountCents,
   isPlanId,
   payfastHost,
-  PLANS,
 } from '../_shared/payfast.ts'
 
 const cors = {
@@ -61,15 +63,15 @@ Deno.serve(async (req) => {
     const passphrase = Deno.env.get('PAYFAST_PASSPHRASE') ?? ''
     const sandbox = Deno.env.get('PAYFAST_SANDBOX') === '1'
     if (!merchantId || !merchantKey) return json({ configured: false })
+    // PayFast rejects unsigned subscription requests — yearly auto-renew
+    // needs the passphrase configured.
+    if (!passphrase) {
+      return json({ error: 'yearly auto-renew needs PAYFAST_PASSPHRASE configured' }, 503)
+    }
 
     const body = await req.json()
-    const plan = body.plan
+    const plan = body.plan ?? 'yearly'
     if (!isPlanId(plan)) return json({ error: 'unknown plan' }, 400)
-    // PayFast rejects unsigned subscription requests, so without a
-    // passphrase only the once-off yearly plan can be sold.
-    if (PLANS[plan].recurring && !passphrase) {
-      return json({ error: 'monthly billing needs PAYFAST_PASSPHRASE configured' }, 503)
-    }
     const origin = typeof body.origin === 'string' ? body.origin : ''
     if (!/^https?:\/\/[^\s/]+$/.test(origin)) return json({ error: 'bad origin' }, 400)
 
@@ -79,17 +81,14 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
-    let referralDiscount = false
-    if (plan === 'yearly') {
-      const [{ data: membership }, { count }] = await Promise.all([
-        db.from('memberships').select('user_id').eq('user_id', user.id).maybeSingle(),
-        db
-          .from('referrals')
-          .select('referred_user_id', { count: 'exact', head: true })
-          .eq('referrer_user_id', user.id),
-      ])
-      referralDiscount = !membership && (count ?? 0) > 0
-    }
+    const [{ data: membership }, { count }] = await Promise.all([
+      db.from('memberships').select('user_id').eq('user_id', user.id).maybeSingle(),
+      db
+        .from('referrals')
+        .select('referred_user_id', { count: 'exact', head: true })
+        .eq('referrer_user_id', user.id),
+    ])
+    const referralDiscount = !membership && (count ?? 0) > 0
     const amountCents = expectedAmountCents(plan, referralDiscount)
 
     const { data: profile } = await db
@@ -112,7 +111,7 @@ Deno.serve(async (req) => {
       userId: user.id,
       referralDiscount,
     })
-    if (passphrase) fields.signature = checkoutSignature(fields, passphrase, md5)
+    fields.signature = checkoutSignature(fields, passphrase, md5)
 
     return json({
       configured: true,

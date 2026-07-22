@@ -1,9 +1,8 @@
 /**
- * PennyPlay Plus — the membership. Two paid plans:
+ * PennyPlay Plus — the membership. One paid plan:
  *
- *   monthly — R25/month, auto-billed by PayFast, cancel anytime
- *   yearly  — R200 once for 12 months (no auto-debit surprises: when the
- *             year is up, you pay again)
+ *   yearly — R200/year, auto-renews via PayFast each year. Cancel anytime;
+ *            you keep access until the end of the year you already paid for.
  *
  * Payments run through PayFast (South Africa). With merchant env vars set
  * on the edge functions, checkout is built and signed server-side
@@ -16,10 +15,9 @@
 
 import { addDays, todaySAST } from './dates'
 
-export type PlanId = 'monthly' | 'yearly'
+export type PlanId = 'yearly'
 
 export const PLUS_PRICE_CENTS = 20_000 // yearly: R200,00
-export const MONTHLY_PRICE_CENTS = 2_500 // monthly: R25,00
 export const PLUS_DAYS = 365
 
 export interface Membership {
@@ -29,9 +27,9 @@ export interface Membership {
   paymentRef: string
   amountCents: number
   activatedAt: string
-  /** Which plan the last successful payment bought. */
+  /** Always yearly — kept for forward-compat with the memberships row. */
   plan: PlanId
-  /** 'cancelled' = auto-billing stopped; access still runs to paidUntil. */
+  /** 'cancelled' = auto-renew stopped; access still runs to paidUntil. */
   billing: 'active' | 'cancelled'
 }
 
@@ -53,7 +51,7 @@ function normalise(raw: Partial<Membership>): Membership {
     paymentRef: raw.paymentRef ?? '',
     amountCents: raw.amountCents ?? PLUS_PRICE_CENTS,
     activatedAt: raw.activatedAt ?? '',
-    plan: raw.plan === 'monthly' ? 'monthly' : 'yearly',
+    plan: 'yearly',
     billing: raw.billing === 'cancelled' ? 'cancelled' : 'active',
   }
 }
@@ -106,18 +104,12 @@ export function yearFrom(m: Membership | null, today: string = todaySAST()): str
   return addDays(base, PLUS_DAYS)
 }
 
-/** A month (with billing grace) of access — mirrors the ITN's arithmetic. */
-export function monthFrom(m: Membership | null, today: string = todaySAST()): string {
-  const base = m && today <= m.paidUntil ? m.paidUntil : today
-  return addDays(base, 33)
-}
-
 /* ------------------------------------------------------------------ */
-/* Legacy client-built PayFast checkout (yearly only)                   */
+/* Legacy client-built PayFast checkout (fallback only)                 */
 /*                                                                      */
 /* Kept as a fallback for deployments that set the VITE_PAYFAST_* vars  */
 /* but haven't configured the payfast-checkout edge function. The       */
-/* subscription (monthly) plan REQUIRES the edge function because       */
+/* yearly auto-renew subscription REQUIRES the edge function because    */
 /* PayFast only accepts signed subscription requests, and signing needs */
 /* the server-side passphrase.                                          */
 /* ------------------------------------------------------------------ */
@@ -140,7 +132,7 @@ export function payfastConfig(): PayfastConfig | null {
   }
 }
 
-/** Build the PayFast checkout URL for one year of Plus. */
+/** Build a legacy (unsigned) PayFast checkout URL for one year of Plus. */
 export function payfastCheckoutUrl(params: {
   config: PayfastConfig
   origin: string
@@ -161,8 +153,9 @@ export function payfastCheckoutUrl(params: {
     return_url: `${origin}/plus?paid=1`,
     cancel_url: `${origin}/plus?cancelled=1`,
     amount: ((params.amountCents ?? PLUS_PRICE_CENTS) / 100).toFixed(2),
-    item_name: 'PennyPlay Plus — 1 year',
-    item_description: 'Full access to PennyPlay for 12 months, billed yearly.',
+    item_name: 'PennyPlay Plus — yearly',
+    item_description:
+      'Full access to PennyPlay for 12 months, renews automatically each year. Cancel anytime.',
   })
   if (params.email) query.set('email_address', params.email)
   if (params.name) query.set('name_first', params.name)

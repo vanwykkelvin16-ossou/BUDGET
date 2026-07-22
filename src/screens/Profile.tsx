@@ -154,7 +154,7 @@ export function Profile() {
                     ? 'active'
                     : plusStatus === 'expired'
                       ? 'renew'
-                      : 'from R25/m'}
+                      : 'R200 / year'}
                 </span>
               </span>
               <span className="text-ink-faint">→</span>

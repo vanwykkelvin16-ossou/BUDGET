@@ -3,7 +3,6 @@ import {
   clampToOneYear,
   daysLeft,
   membershipStatus,
-  monthFrom,
   payfastCheckoutUrl,
   PLUS_PRICE_CENTS,
   yearFrom,
@@ -49,14 +48,8 @@ describe('membership status', () => {
     expect(daysLeft(clampToOneYear(paidUpTo('2050-07-07'), TODAY), TODAY)).toBe(365)
   })
 
-  it('a month of access stacks on active time, restarts when lapsed', () => {
-    expect(monthFrom(null, TODAY)).toBe('2026-08-15') // +33 days
-    expect(monthFrom(paidUpTo('2026-07-20'), TODAY)).toBe('2026-08-22') // stacks
-    expect(monthFrom(paidUpTo('2026-07-01'), TODAY)).toBe('2026-08-15') // lapsed → from today
-  })
-
   it('a cancelled plan keeps access until its paid-up day', () => {
-    const cancelled: Membership = { ...paidUpTo('2026-08-01'), plan: 'monthly', billing: 'cancelled' }
+    const cancelled: Membership = { ...paidUpTo('2026-08-01'), billing: 'cancelled' }
     expect(membershipStatus(cancelled, TODAY)).toBe('active')
     expect(daysLeft(cancelled, TODAY)).toBe(19)
     expect(membershipStatus(cancelled, '2026-08-02')).toBe('expired')
@@ -79,7 +72,8 @@ describe('payfast checkout url', () => {
     expect(url.searchParams.get('merchant_id')).toBe('10000100')
     expect(url.searchParams.get('return_url')).toContain('/plus?paid=1')
     expect(url.searchParams.get('custom_str1')).toBe('user-1')
-    expect(url.searchParams.get('custom_str3')).toBe('yearly') // plan tag for the ITN
+    expect(url.searchParams.get('custom_str3')).toBe('yearly')
+    expect(url.searchParams.get('item_name')).toMatch(/yearly/i)
   })
 
   it('uses the sandbox host when flagged', () => {

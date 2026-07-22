@@ -39,7 +39,7 @@ describe('checkout signature', () => {
     merchant_key: '46f0cd694581a',
     return_url: 'https://example.com/plus?paid=1',
     amount: '200.00',
-    item_name: 'PennyPlay Plus — 1 year',
+    item_name: 'PennyPlay Plus — yearly',
   }
 
   it('hashes the fields in the given order plus the passphrase', () => {
@@ -47,7 +47,7 @@ describe('checkout signature', () => {
       'merchant_id=10000100&merchant_key=46f0cd694581a' +
         '&return_url=https%3A%2F%2Fexample.com%2Fplus%3Fpaid%3D1' +
         '&amount=200.00' +
-        `&item_name=${pfEncode('PennyPlay Plus — 1 year')}` +
+        `&item_name=${pfEncode('PennyPlay Plus — yearly')}` +
         `&passphrase=${PASSPHRASE}`,
     )
     expect(checkoutSignature(fields, PASSPHRASE, md5)).toBe(expected)
@@ -73,13 +73,12 @@ describe('ITN signature verification', () => {
       m_payment_id: 'abc-123',
       pf_payment_id: '1089250',
       payment_status: 'COMPLETE',
-      item_name: 'PennyPlay Plus — 1 year',
+      item_name: 'PennyPlay Plus — yearly',
       amount_gross: '200.00',
       custom_str1: 'user-1',
       merchant_id: '10000100',
       ...overrides,
     })
-    // Sign exactly like PayFast does: pairs in sent order + passphrase.
     const signable =
       [...params].map(([k, v]) => `${k}=${pfEncode(v)}`).join('&') +
       `&passphrase=${pfEncode(PASSPHRASE)}`
@@ -101,7 +100,7 @@ describe('ITN signature verification', () => {
   it('rejects a missing signature when a passphrase is configured', () => {
     const params = signedItn()
     expect(itnSignatureValid(params, undefined, PASSPHRASE, md5)).toBe(false)
-    expect(itnSignatureValid(params, undefined, '', md5)).toBe(true) // legacy: nothing to check against
+    expect(itnSignatureValid(params, undefined, '', md5)).toBe(true)
   })
 })
 
@@ -129,21 +128,14 @@ describe('checkout fields', () => {
     userId: 'user-1',
   }
 
-  it('yearly: once-off R200 with the plan tagged for the ITN', () => {
+  it('yearly: a R200 PayFast subscription billed annually until cancelled', () => {
     const fields = buildCheckoutFields({ ...base, plan: 'yearly', amountCents: 20_000 })
     expect(fields.amount).toBe('200.00')
     expect(fields.custom_str1).toBe('user-1')
     expect(fields.custom_str3).toBe('yearly')
-    expect(fields.subscription_type).toBeUndefined()
-  })
-
-  it('monthly: a R25 PayFast subscription billed monthly until cancelled', () => {
-    const fields = buildCheckoutFields({ ...base, plan: 'monthly', amountCents: 2_500 })
-    expect(fields.amount).toBe('25.00')
-    expect(fields.custom_str3).toBe('monthly')
     expect(fields.subscription_type).toBe('1')
-    expect(fields.recurring_amount).toBe('25.00')
-    expect(fields.frequency).toBe('3') // monthly
+    expect(fields.recurring_amount).toBe('200.00')
+    expect(fields.frequency).toBe('6') // annual
     expect(fields.cycles).toBe('0') // until cancelled
   })
 
@@ -165,18 +157,17 @@ describe('checkout fields', () => {
 })
 
 describe('plans and amounts', () => {
-  it('knows the two plans and rejects anything else', () => {
-    expect(isPlanId('monthly')).toBe(true)
+  it('only sells the yearly plan', () => {
     expect(isPlanId('yearly')).toBe(true)
+    expect(isPlanId('monthly')).toBe(false)
     expect(isPlanId('lifetime')).toBe(false)
     expect(isPlanId(undefined)).toBe(false)
+    expect(Object.keys(PLANS)).toEqual(['yearly'])
   })
 
-  it('prices: R25 monthly, R200 yearly, R150 referral first year', () => {
-    expect(expectedAmountCents('monthly', false)).toBe(2_500)
+  it('prices: R200 yearly, R150 referral first year', () => {
     expect(expectedAmountCents('yearly', false)).toBe(20_000)
     expect(expectedAmountCents('yearly', true)).toBe(REFERRAL_YEARLY_CENTS)
-    expect(expectedAmountCents('monthly', true)).toBe(2_500) // discount never applies monthly
   })
 
   it('sandbox vs live host', () => {
@@ -192,26 +183,13 @@ describe('extendPaidUntil', () => {
     expect(extendPaidUntil(null, TODAY, 'yearly')).toBe('2027-07-22')
   })
 
-  it('a monthly charge adds a month (with grace) onto what is left', () => {
-    expect(extendPaidUntil(null, TODAY, 'monthly')).toBe('2026-08-24') // +33 days
-    expect(extendPaidUntil('2026-07-30', TODAY, 'monthly')).toBe('2026-09-01') // stacks
-    expect(extendPaidUntil('2026-01-01', TODAY, 'monthly')).toBe('2026-08-24') // lapsed → from today
-  })
-
-  it('monthly can never run further than the plan cap (double-delivery safety)', () => {
-    expect(extendPaidUntil('2026-09-20', TODAY, 'monthly')).toBe('2026-09-26') // capped at +66
-  })
-
-  it('a yearly upgrade replaces the remaining month instead of stacking past a year', () => {
-    expect(extendPaidUntil('2026-08-15', TODAY, 'yearly')).toBe('2027-07-22') // cap: today + 365
-  })
-
-  it('a yearly renewal close to expiry keeps the remaining days', () => {
+  it('a renewal close to expiry keeps the remaining days, capped at one year ahead', () => {
     expect(extendPaidUntil('2026-07-23', TODAY, 'yearly')).toBe('2027-07-22') // capped
     expect(extendPaidUntil('2026-07-10', TODAY, 'yearly')).toBe('2027-07-22') // lapsed → from today
   })
 
-  it('plan table sanity: yearly beats 12× monthly', () => {
-    expect(PLANS.yearly.amountCents).toBeLessThan(PLANS.monthly.amountCents * 12)
+  it('yearly is auto-renewing at PayFast', () => {
+    expect(PLANS.yearly.recurring).toBe(true)
+    expect(PLANS.yearly.frequency).toBe('6')
   })
 })

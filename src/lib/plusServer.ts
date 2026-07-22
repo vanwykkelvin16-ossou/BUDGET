@@ -22,10 +22,10 @@ function rowToMembership(row: Record<string, unknown>): Membership {
     paymentRef: (row.payment_ref as string) || 'payfast',
     amountCents: (row.amount_cents as number) ?? PLUS_PRICE_CENTS,
     activatedAt: (row.activated_at as string) ?? '',
-    plan: row.plan === 'monthly' ? 'monthly' : 'yearly',
-    billing: row.status === 'cancelled' ? 'cancelled' : 'active',
-  })
-}
+        plan: 'yearly',
+        billing: row.status === 'cancelled' ? 'cancelled' : 'active',
+      })
+    }
 
 /**
  * Reconcile local membership state with the server. Signed-in users get
@@ -71,6 +71,11 @@ export interface PaymentRecord {
   createdAt: string
 }
 
+/** Always yearly — older rows may still say monthly; coerce for display. */
+function coercePlan(_value: unknown): PlanId {
+  return 'yearly'
+}
+
 /** Recent payment history, newest first. Empty in on-device mode. */
 export async function fetchPayments(limit = 12): Promise<PaymentRecord[]> {
   const supabase = getSupabaseClient()
@@ -86,7 +91,7 @@ export async function fetchPayments(limit = 12): Promise<PaymentRecord[]> {
       .limit(limit)
     return (data ?? []).map((row) => ({
       pfPaymentId: (row.pf_payment_id as string) ?? '',
-      plan: row.plan === 'monthly' ? 'monthly' : 'yearly',
+      plan: coercePlan(row.plan),
       status: (row.status as PaymentRecord['status']) ?? 'complete',
       amountCents: (row.amount_cents as number) ?? 0,
       itemName: (row.item_name as string) ?? '',
@@ -153,7 +158,7 @@ export function submitCheckoutForm(checkout: ServerCheckout): void {
 }
 
 /**
- * Cancel the monthly subscription (stops PayFast billing; access runs to
+ * Cancel the yearly auto-renew (stops PayFast billing; access runs to
  * the end of the paid period). Returns the updated membership, or an
  * error message.
  */

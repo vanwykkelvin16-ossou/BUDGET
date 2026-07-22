@@ -1,8 +1,8 @@
 /**
  * End-to-end smoke test of the Plus payment flows against a running dev
  * server (npm run dev), in on-device test mode — pricing table, test-mode
- * checkout for both plans, cancel flow, monthly→yearly upgrade, and the
- * 45-second gate (shortened via the pennyplay:gate-seconds override).
+ * yearly checkout, cancel auto-renew flow, and the 45-second gate
+ * (shortened via the pennyplay:gate-seconds override).
  *
  *   npx playwright install chromium   # once
  *   node scripts/e2e-plus.mjs
@@ -34,44 +34,34 @@ check('demo mode loads dashboard', await page.getByText('Fun money for today').f
 await page.goto(BASE + '/plus')
 await page.waitForTimeout(800)
 check('pricing: free tier card', await page.getByText('Free look').first().isVisible())
-check('pricing: monthly card', await page.getByText('Plus Monthly').first().isVisible())
-check('pricing: yearly card', await page.getByText('Plus Yearly').first().isVisible())
-check('pricing: best value badge', await page.getByText('Best value').first().isVisible())
-check('pricing: pros shown', (await page.getByText('Pros', { exact: true }).count()) >= 3)
-check('pricing: cons shown', (await page.getByText('Cons', { exact: true }).count()) >= 3)
+check('pricing: plus yearly card', await page.getByText('PennyPlay Plus').nth(1).isVisible())
+check('pricing: no monthly option', !(await page.getByText('Plus Monthly').isVisible().catch(() => false)))
+check('pricing: auto-renew badge', await page.getByText(/Auto-renews yearly/i).first().isVisible())
+check('pricing: pros shown', (await page.getByText('Pros', { exact: true }).count()) >= 2)
+check('pricing: cons shown', (await page.getByText('Cons', { exact: true }).count()) >= 2)
 check('pricing: comparison matrix', await page.getByText('Compare everything').isVisible())
 check('pricing: test-mode notice', await page.getByText(/Test mode/).isVisible())
 await page.screenshot({ path: `${ART}/plus-pricing-top.png` })
-await page.getByText('Compare everything').scrollIntoViewIfNeeded()
-await page.screenshot({ path: `${ART}/plus-pricing-matrix.png` })
 
-// Buy monthly in test mode
-await page.getByRole('button', { name: /Go monthly/ }).click()
+// Buy yearly in test mode
+await page.getByRole('button', { name: /Join Plus/ }).click()
 await page.waitForTimeout(800)
-check('monthly activates (test mode)', await page.getByText('🌙 Plus Monthly').isVisible())
+check('yearly activates (test mode)', await page.getByText('⭐ PennyPlay Plus').isVisible())
 check('status: days left meter', await page.getByText(/days left/).isVisible())
-check('status: upgrade button', await page.getByRole('button', { name: /Upgrade to Yearly/ }).isVisible())
-check('status: cancel button', await page.getByRole('button', { name: 'Cancel subscription' }).isVisible())
-await page.screenshot({ path: `${ART}/plus-monthly-active.png` })
+check('status: renews around', await page.getByText(/Renews around/).isVisible())
+check('status: cancel auto-renew', await page.getByRole('button', { name: 'Cancel auto-renew' }).isVisible())
+await page.screenshot({ path: `${ART}/plus-yearly-active.png` })
 
 // Cancel flow
-await page.getByRole('button', { name: 'Cancel subscription' }).click()
+await page.getByRole('button', { name: 'Cancel auto-renew' }).click()
 await page.waitForTimeout(400)
-check('cancel sheet opens', await page.getByText('Cancel Plus Monthly?').isVisible())
+check('cancel sheet opens', await page.getByText('Cancel auto-renew?').isVisible())
 await page.screenshot({ path: `${ART}/plus-cancel-sheet.png` })
-await page.getByRole('button', { name: 'Yes, stop billing' }).click()
+await page.getByRole('button', { name: 'Yes, stop auto-renew' }).click()
 await page.waitForTimeout(600)
 check('cancelled: ending badge', await page.getByText('ending', { exact: true }).isVisible())
-check('cancelled: access until note', await page.getByText(/Auto-billing stopped/).isVisible())
-await page.screenshot({ path: `${ART}/plus-monthly-cancelled.png` })
-
-// Upgrade to yearly
-await page.getByRole('button', { name: /Upgrade to Yearly/ }).click()
-await page.waitForTimeout(800)
-check('upgrade: yearly active', await page.getByText('⭐ Plus Yearly').isVisible())
-check('upgrade: set-for-year note', await page.getByText(/set for the year/).isVisible())
-check('upgrade: pricing table hidden', !(await page.getByText('Pick your plan').isVisible().catch(() => false)))
-await page.screenshot({ path: `${ART}/plus-yearly-active.png` })
+check('cancelled: access until note', await page.getByText(/Auto-renew stopped/).isVisible())
+await page.screenshot({ path: `${ART}/plus-yearly-cancelled.png` })
 
 await browser.close()
 
@@ -88,42 +78,35 @@ await page2.getByPlaceholder('Username').fill('testy123')
 await page2.getByPlaceholder('you@example.com').fill('testy@example.com')
 await page2.getByPlaceholder('082 123 4567').fill('0821234567')
 await page2.getByRole('button', { name: "That's me" }).click()
-// salary: tap 2 5 0 0 0 on the number pad
 for (const d of ['2', '5', '0', '0', '0']) {
   await page2.getByRole('button', { name: d, exact: true }).first().click()
 }
 await page2.getByRole('button', { name: 'Next', exact: true }).click()
 await page2.waitForTimeout(400)
-// pay date step → keep default day
 await page2.getByRole('button', { name: 'Next', exact: true }).click()
 await page2.waitForTimeout(400)
-// splits step
 await page2.getByRole('button', { name: 'Looks good' }).click()
 await page2.waitForTimeout(400)
-// done step
 await page2.getByRole('button', { name: /Let's go/ }).click()
 await page2.waitForTimeout(1500)
 
-// wait for the (shortened) gate
 await page2.waitForTimeout(4000)
 const gateVisible = await page2.getByText('Your free look around is over').isVisible().catch(() => false)
 check('gate appears after grace period', gateVisible)
 if (gateVisible) {
-  check('gate: yearly button', await page2.getByRole('button', { name: /A year/ }).isVisible())
-  check('gate: monthly button', await page2.getByRole('button', { name: /Monthly — / }).isVisible())
-  check('gate: compare link', await page2.getByText('Compare the plans in detail').isVisible())
+  check('gate: join plus button', await page2.getByRole('button', { name: /Join Plus/ }).isVisible())
+  check('gate: no monthly button', !(await page2.getByRole('button', { name: /Monthly/ }).isVisible().catch(() => false)))
+  check('gate: see included link', await page2.getByText("See what's included").isVisible())
   await page2.screenshot({ path: `${ART}/plus-gate.png` })
 
-  // Compare link → /plus must be reachable (gate never walls it off)
-  await page2.getByText('Compare the plans in detail').click()
+  await page2.getByText("See what's included").click()
   await page2.waitForTimeout(800)
-  check('gate: /plus reachable', await page2.getByText('Pick your plan').isVisible())
+  check('gate: /plus reachable', await page2.getByText('Join PennyPlay Plus').isVisible())
   check('gate hidden on /plus', !(await page2.getByText('Your free look around is over').isVisible().catch(() => false)))
 
-  // Buy yearly from pricing page (test mode) → gate lifts
-  await page2.getByRole('button', { name: /Get the year/ }).click()
+  await page2.getByRole('button', { name: /Join Plus/ }).click()
   await page2.waitForTimeout(800)
-  check('yearly purchase unlocks', await page2.getByText('⭐ Plus Yearly').isVisible())
+  check('yearly purchase unlocks', await page2.getByText('⭐ PennyPlay Plus').isVisible())
   await page2.goto(BASE + '/')
   await page2.waitForTimeout(4000)
   check('gate stays lifted after payment', !(await page2.getByText('Your free look around is over').isVisible().catch(() => false)))

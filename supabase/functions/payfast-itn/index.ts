@@ -1,14 +1,14 @@
 /**
  * PayFast ITN (Instant Transaction Notification) handler.
  *
- * PayFast POSTs here after every payment event — first checkouts, monthly
- * subscription charges, failed charges and subscription cancellations.
+ * PayFast POSTs here after every payment event — first checkouts, yearly
+ * subscription renewals, failed charges and subscription cancellations.
  * Each notification is verified (merchant id, signature, server postback
  * to PayFast, and for successful payments the amount against the plan's
  * server-side price) and then:
  *
  *   COMPLETE  → recorded in the payments ledger + membership extended by
- *               the plan's period (monthly +33 days, yearly +365, capped)
+ *               a year (capped at 365 days from today)
  *   CANCELLED → recorded + membership marked cancelled (access continues
  *               until paid_until — no clawback of paid time)
  *   other     → recorded (failed/pending) so the app can surface it
@@ -20,13 +20,12 @@
  *
  * Deploy:  supabase functions deploy payfast-itn --no-verify-jwt
  * Env:     PAYFAST_MERCHANT_ID (recommended), PAYFAST_PASSPHRASE
- *          (required for subscriptions), PAYFAST_SANDBOX=1 while testing
+ *          (required for the yearly subscription), PAYFAST_SANDBOX=1 while testing
  */
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { md5 } from 'npm:js-md5@0.8.3'
 import {
-  apiSignature,
   expectedAmountCents,
   extendPaidUntil,
   isPlanId,
@@ -66,7 +65,7 @@ Deno.serve(async (req) => {
     return new Response('validation failed', { status: 400 })
   }
 
-  // 4) Whose payment is this, and for which plan?
+  // 4) Whose payment is this? Plus is yearly-only.
   const userId = data.custom_str1
   if (!userId) return new Response('no user reference', { status: 400 })
   const plan: PlanId = isPlanId(data.custom_str3) ? data.custom_str3 : 'yearly'
@@ -128,7 +127,7 @@ Deno.serve(async (req) => {
   //    with a real signed-up referral on record.
   const claimsDiscount = data.custom_str2 === 'ref50'
   if (claimsDiscount) {
-    if (plan !== 'yearly' || existing) {
+    if (existing) {
       return new Response('discount only applies to the first yearly payment', { status: 400 })
     }
     const { count } = await supabase
@@ -143,17 +142,16 @@ Deno.serve(async (req) => {
     return new Response('amount mismatch', { status: 400 })
   }
 
-  // 9) Extend the membership by the plan's period (capped — one year at a
-  //    time, and an upgrade replaces rather than stacks).
+  // 9) Extend the membership by a year (capped — one year at a time).
   const paidUntil = extendPaidUntil(existing?.paid_until ?? null, today, plan)
-  const token = data.token ?? (plan === existing?.plan ? existing?.payfast_token ?? '' : '')
+  const token = data.token ?? existing?.payfast_token ?? ''
 
   const { error } = await supabase.from('memberships').upsert({
     user_id: userId,
     paid_until: paidUntil,
     payment_ref: data.pf_payment_id ?? '',
     amount_cents: amountCents,
-    plan,
+    plan: 'yearly',
     status: 'active',
     payfast_token: token,
     cancelled_at: null,
@@ -161,40 +159,5 @@ Deno.serve(async (req) => {
   })
   if (error) return new Response('store failed', { status: 500 })
 
-  // 10) A yearly purchase supersedes a running monthly subscription —
-  //     cancel the old subscription at PayFast so the R25 debits stop.
-  if (
-    plan === 'yearly' &&
-    existing?.plan === 'monthly' &&
-    existing.payfast_token &&
-    existing.status === 'active'
-  ) {
-    try {
-      await cancelSubscription(existing.payfast_token, sandbox, passphrase)
-    } catch {
-      // Best effort — the user can still cancel from the app or PayFast
-      // dashboard; their access is already upgraded either way.
-    }
-  }
-
   return new Response('ok', { status: 200 })
 })
-
-/** PayFast subscriptions API: PUT /subscriptions/{token}/cancel. */
-async function cancelSubscription(
-  token: string,
-  sandbox: boolean,
-  passphrase: string,
-): Promise<void> {
-  const merchantId = Deno.env.get('PAYFAST_MERCHANT_ID') ?? ''
-  if (!merchantId || !passphrase) throw new Error('merchant credentials missing')
-  const timestamp = new Date().toISOString().slice(0, 19)
-  const headers = { 'merchant-id': merchantId, version: 'v1', timestamp }
-  const signature = apiSignature(headers, passphrase, md5)
-  const testing = sandbox ? '?testing=true' : ''
-  const res = await fetch(
-    `https://api.payfast.co.za/subscriptions/${encodeURIComponent(token)}/cancel${testing}`,
-    { method: 'PUT', headers: { ...headers, signature } },
-  )
-  if (!res.ok) throw new Error(`cancel failed: ${res.status}`)
-}

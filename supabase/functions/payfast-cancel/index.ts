@@ -1,8 +1,8 @@
 /**
- * payfast-cancel — the signed-in user cancels their monthly Plus
- * subscription. We tell PayFast to stop billing (subscriptions API) and
- * mark the membership cancelled; access continues until paid_until, which
- * is never clawed back.
+ * payfast-cancel — the signed-in user cancels their yearly Plus
+ * auto-renew subscription. We tell PayFast to stop billing
+ * (subscriptions API) and mark the membership cancelled; access continues
+ * until paid_until, which is never clawed back.
  *
  * POST (no body) with the user's JWT.
  *   → { cancelled: true, paidUntil }
@@ -56,15 +56,11 @@ Deno.serve(async (req) => {
     if (membership.status === 'cancelled') {
       return json({ cancelled: true, paidUntil: membership.paid_until })
     }
-    if (membership.plan !== 'monthly') {
-      // Yearly is a once-off — there is nothing at PayFast to stop.
-      return json({ error: 'yearly has no auto-billing to cancel' }, 400)
-    }
 
-    // Stop the debit order at PayFast. Without a token on record (e.g. a
-    // membership from before tokens were stored) we still mark it
-    // cancelled locally so billing-state and app-state can't disagree
-    // after the user asked to stop.
+    // Stop the yearly auto-renew at PayFast. Without a token on record
+    // (e.g. a membership from before tokens were stored, or test mode) we
+    // still mark it cancelled locally so billing-state and app-state can't
+    // disagree after the user asked to stop.
     if (membership.payfast_token) {
       const merchantId = Deno.env.get('PAYFAST_MERCHANT_ID') ?? ''
       const passphrase = Deno.env.get('PAYFAST_PASSPHRASE') ?? ''

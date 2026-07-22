@@ -1,6 +1,6 @@
 /**
  * The 45-second gate. Real (non-demo) users get 45 seconds inside the app
- * per session; without an active PennyPlay Plus plan, a full-screen,
+ * per session; without an active PennyPlay Plus year, a full-screen,
  * undismissable offer takes over until they subscribe. Members and demo
  * mode never see it.
  *
@@ -9,7 +9,7 @@
  * immediately, and a stale local unlock doesn't), and while blocked it
  * keeps polling so a payment confirmed in another tab lifts it. The /plus
  * pricing page itself is never gated — people must be able to reach the
- * pay buttons.
+ * pay button.
  */
 
 import { useEffect, useState } from 'react'
@@ -19,10 +19,8 @@ import { useAppStore } from '../state/appStore'
 import {
   loadMembership,
   membershipStatus,
-  MONTHLY_PRICE_CENTS,
   PLUS_PRICE_CENTS,
   type Membership,
-  type PlanId,
 } from '../lib/membership'
 import { plusPriceCents, rewardUnlocked } from '../lib/referral'
 import { payForPlan } from '../lib/plusCheckout'
@@ -39,14 +37,14 @@ const GATE_PERKS = [
   'Fun money for today, always true to your cash',
   'Savings goals, quests, streaks & XP',
   'Smart nudges and the month tracker',
-  'Every new feature while your plan runs',
+  'Every new feature for the next 12 months',
 ]
 
 export function PlusGate() {
   const profile = useAppStore((s) => s.data.profile)
   const location = useLocation()
   const [blocked, setBlocked] = useState(false)
-  const [busy, setBusy] = useState<PlanId | null>(null)
+  const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
 
   // Arm the timer: server check first, then the grace period.
@@ -90,31 +88,31 @@ export function PlusGate() {
   }, [blocked])
 
   if (!profile) return null
-  // The pricing page holds the pay buttons — never wall it off.
+  // The pricing page holds the pay button — never wall it off.
   const onPlusPage = location.pathname === '/plus'
 
   const reward = rewardUnlocked()
   const current: Membership | null = loadMembership()
-  const yearlyCents = plusPriceCents({
+  const priceCents = plusPriceCents({
     fullPriceCents: PLUS_PRICE_CENTS,
     unlocked: reward,
     isFirstPayment: current === null,
   })
 
-  async function subscribe(plan: PlanId) {
+  async function subscribe() {
     if (busy) return
-    setBusy(plan)
+    setBusy(true)
     setNote(null)
     const result = await payForPlan({
-      plan,
-      priceCents: plan === 'yearly' ? yearlyCents : MONTHLY_PRICE_CENTS,
-      referralDiscount: plan === 'yearly' && reward && current === null,
+      plan: 'yearly',
+      priceCents,
+      referralDiscount: reward && current === null,
       current,
       email: profile?.email || undefined,
       name: profile?.displayName || undefined,
     })
     if (result === 'redirected') return // browser is leaving for PayFast
-    setBusy(null)
+    setBusy(false)
     if (typeof result === 'object' && 'error' in result) setNote(result.error)
     else setBlocked(false)
   }
@@ -137,8 +135,8 @@ export function PlusGate() {
               Your free look around is over 😄
             </h2>
             <p className="text-sm text-ink-soft font-semibold mt-2 max-w-[34ch]">
-              Join Plus to keep playing — from {formatZAR(MONTHLY_PRICE_CENTS, { showCents: false })}{' '}
-              a month, cancel anytime.
+              Join Plus to keep playing — {formatZAR(priceCents, { showCents: false })} a year,
+              auto-renews, cancel anytime.
             </p>
 
             <div className="w-full mt-6 rounded-[24px] border border-edge bg-card p-4 text-left">
@@ -158,32 +156,15 @@ export function PlusGate() {
 
             {reward && current === null && (
               <p className="text-xs font-extrabold text-lime mt-4">
-                🎁 Friend reward applied — R50 off a first year
+                🎁 Friend reward applied — R50 off your first year
               </p>
             )}
 
-            <div className="w-full mt-5 flex flex-col gap-2.5">
-              <Button3D
-                full
-                size="lg"
-                variant="gold"
-                disabled={busy !== null}
-                onClick={() => void subscribe('yearly')}
-              >
-                {busy === 'yearly'
+            <div className="w-full mt-5">
+              <Button3D full size="lg" variant="gold" disabled={busy} onClick={() => void subscribe()}>
+                {busy
                   ? 'Opening secure checkout…'
-                  : `⭐ A year — ${formatZAR(yearlyCents, { showCents: false })} · best value`}
-              </Button3D>
-              <Button3D
-                full
-                size="md"
-                variant="aqua"
-                disabled={busy !== null}
-                onClick={() => void subscribe('monthly')}
-              >
-                {busy === 'monthly'
-                  ? 'Opening secure checkout…'
-                  : `🌙 Monthly — ${formatZAR(MONTHLY_PRICE_CENTS, { showCents: false })}/month`}
+                  : `⭐ Join Plus — ${formatZAR(priceCents, { showCents: false })} / year`}
               </Button3D>
             </div>
             {note && <p className="text-xs text-coral font-bold mt-3 max-w-[38ch]">{note}</p>}
@@ -192,10 +173,11 @@ export function PlusGate() {
               to="/plus"
               className="mt-4 text-xs font-extrabold text-aqua underline underline-offset-2"
             >
-              Compare the plans in detail →
+              See what's included →
             </Link>
             <p className="text-[10px] text-ink-faint font-bold mt-3">
-              Secure checkout by PayFast · cancel monthly anytime · your data stays yours
+              Secure checkout by PayFast · auto-renews yearly · cancel anytime · your data stays
+              yours
             </p>
           </div>
         </motion.div>

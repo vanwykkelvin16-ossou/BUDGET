@@ -13,7 +13,7 @@
 export type Md5 = (input: string) => string
 
 /* ------------------------------------------------------------------ */
-/* Plans — priced server-side; the client can never choose an amount.  */
+/* Plan — priced server-side; the client can never choose an amount.   */
 /* ------------------------------------------------------------------ */
 
 export interface PlanSpec {
@@ -26,24 +26,20 @@ export interface PlanSpec {
   maxDaysAhead: number
   /** True when PayFast bills this plan automatically (subscription). */
   recurring: boolean
+  /** PayFast frequency code (6 = annual). Only set for recurring plans. */
+  frequency?: '1' | '2' | '3' | '4' | '5' | '6'
 }
 
-export const PLANS: Record<'monthly' | 'yearly', PlanSpec> = {
-  monthly: {
-    amountCents: 2_500, // R25,00
-    itemName: 'PennyPlay Plus — monthly',
-    itemDescription: 'Full access to PennyPlay, billed monthly. Cancel anytime.',
-    daysPerPayment: 33, // a full month + a little grace for billing delays
-    maxDaysAhead: 66,
-    recurring: true,
-  },
+/** PennyPlay Plus — one yearly auto-renewing subscription. */
+export const PLANS: Record<'yearly', PlanSpec> = {
   yearly: {
     amountCents: 20_000, // R200,00
-    itemName: 'PennyPlay Plus — 1 year',
-    itemDescription: 'Full access to PennyPlay for 12 months, billed yearly.',
+    itemName: 'PennyPlay Plus — yearly',
+    itemDescription: 'Full access to PennyPlay for 12 months, renews automatically each year. Cancel anytime.',
     daysPerPayment: 365,
     maxDaysAhead: 365,
-    recurring: false,
+    recurring: true,
+    frequency: '6', // annual
   },
 }
 
@@ -53,7 +49,7 @@ export type PlanId = keyof typeof PLANS
 export const REFERRAL_YEARLY_CENTS = 15_000
 
 export function isPlanId(value: unknown): value is PlanId {
-  return value === 'monthly' || value === 'yearly'
+  return value === 'yearly'
 }
 
 /** The rand amount PayFast must report for a payment to count. */
@@ -188,7 +184,7 @@ export function buildCheckoutFields(p: CheckoutParams): Record<string, string> {
   if (plan.recurring) {
     fields.subscription_type = '1' // subscription (not tokenization)
     fields.recurring_amount = rands(plan.amountCents)
-    fields.frequency = '3' // monthly
+    fields.frequency = plan.frequency ?? '6'
     fields.cycles = '0' // runs until cancelled
   }
   return fields
@@ -209,8 +205,7 @@ export function addDaysISO(iso: string, days: number): string {
 /**
  * Where a successful payment moves paid_until: stack the plan's days on the
  * remaining time (or on today when lapsed), but never further than the
- * plan's cap from today. A monthly→yearly upgrade therefore lands on
- * today + 365 rather than stacking the leftover month on top.
+ * plan's cap from today.
  */
 export function extendPaidUntil(
   existingPaidUntil: string | null,
