@@ -370,12 +370,8 @@ export const useAppStore = create<AppState>((set, get) => {
       if (get().loaded) return
       const stored = await store.load()
       if (!stored?.profile) {
-        // Supabase mode: no session at all → the auth screen; a session
-        // without an onboarded profile → onboarding.
-        if (store.kind === 'supabase' && !(await store.userId?.())) {
-          set({ loaded: true, needsAuth: true, data: emptyAppData() })
-          return
-        }
+        // No profile yet → Onboarding (sign-up lives there). Returning users
+        // sign in from the welcome screen; we never gate on a separate Auth page.
         set({ loaded: true, needsAuth: false, data: stored ?? emptyAppData() })
         return
       }
@@ -917,7 +913,8 @@ export const useAppStore = create<AppState>((set, get) => {
     resetAll: async () => {
       await store.clear()
       useJuiceStore.getState().clear()
-      set({ data: emptyAppData(), loaded: true, needsAuth: store.kind === 'supabase' })
+      // Always land on Onboarding after a wipe — sign-in lives there too.
+      set({ data: emptyAppData(), loaded: true, needsAuth: false })
     },
   }
 })

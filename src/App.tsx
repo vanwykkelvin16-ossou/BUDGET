@@ -13,7 +13,6 @@ import { JuiceHost } from './components/juice/JuiceHost'
 import { PlusGate } from './components/PlusGate'
 import { Randy } from './components/ui/Randy'
 
-import { Auth } from './screens/Auth'
 import { Onboarding } from './screens/Onboarding'
 import { Dashboard } from './screens/Dashboard'
 import { AddTransaction } from './screens/AddTransaction'
@@ -31,7 +30,6 @@ import { Plus } from './screens/Plus'
 
 export function App() {
   const loaded = useAppStore((s) => s.loaded)
-  const needsAuth = useAppStore((s) => s.needsAuth)
   const data = useAppStore((s) => s.data)
   const profile = data.profile
   const init = useAppStore((s) => s.init)
@@ -94,10 +92,8 @@ export function App() {
     )
   }
 
-  if (needsAuth) {
-    return <Auth />
-  }
-
+  // One sign-up path only: Onboarding. Returning users sign in from the
+  // welcome screen there — no separate Auth gate before it.
   if (!profile) {
     return (
       <>
