@@ -59,7 +59,12 @@ export function Auth() {
           })
     setBusy(false)
     if (authError) {
-      setError(authError.message)
+      const msg = authError.message.toLowerCase()
+      setError(
+        msg.includes('rate limit')
+          ? 'Too many emails sent — wait about an hour, or turn off “Confirm email” in the Supabase Auth settings and try again.'
+          : authError.message,
+      )
       return
     }
     await reload()
