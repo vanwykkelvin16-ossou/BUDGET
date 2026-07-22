@@ -7,7 +7,7 @@
  * payfast-checkout edge function; clearly-labelled test mode otherwise.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAppStore } from '../state/appStore'
 import {
@@ -524,26 +524,39 @@ export function Plus() {
         </Card>
       )}
 
-      {/* ----- Fine print ----- */}
-      <Card className="mb-8">
-        <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-ink-faint mb-2">
+      {/* ----- Fine print (Apple-style grouped list) ----- */}
+      <section className="mb-8">
+        <p className="px-1 mb-2 text-[11px] font-semibold tracking-tight text-ink-faint">
           The honest fine print
         </p>
-        <ul className="flex flex-col gap-1.5 text-[11px] text-ink-soft font-semibold leading-snug">
-          <li>
-            🔐 Payments are processed by <b className="text-ink">PayFast</b> — your card details
-            never touch PennyPlay's servers, and every payment is verified server-side before it
-            activates anything.
-          </li>
-          <li>
-            ⭐ Plus is <b className="text-ink">R200 a year</b> and auto-renews via PayFast each
-            year until you cancel. Cancel in one tap here — you keep access to the end of the year
-            you already paid for.
-          </li>
-          <li>💳 A failed renewal never removes access you already paid for.</li>
-          <li>🎁 A friend who signs up with your link unlocks R50 off your first year only.</li>
-        </ul>
-      </Card>
+        <div className="rounded-[22px] overflow-hidden border border-white/10 bg-white/5 backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+          <FinePrintRow
+            icon={<LockGlyph />}
+            iconClass="bg-violet"
+            title="Secured by PayFast"
+            body="Your card details never touch PennyPlay. Every payment is verified server-side before anything unlocks."
+          />
+          <FinePrintRow
+            icon={<RenewGlyph />}
+            iconClass="bg-ember"
+            title="R200 a year, auto-renews"
+            body="Renews each year via PayFast until you cancel. Cancel in one tap — keep access to the end of the year you paid for."
+          />
+          <FinePrintRow
+            icon={<ShieldGlyph />}
+            iconClass="bg-lime"
+            title="Failed renewals stay soft"
+            body="A declined charge never removes access you've already paid for."
+          />
+          <FinePrintRow
+            icon={<GiftGlyph />}
+            iconClass="bg-coral"
+            title="R50 off with a friend"
+            body="A friend who signs up with your link unlocks R50 off your first year only."
+            last
+          />
+        </div>
+      </section>
 
       {/* ----- Cancel confirmation ----- */}
       <Sheet open={cancelSheet} onClose={() => setCancelSheet(false)} title="Cancel auto-renew?">
@@ -716,5 +729,91 @@ function MatrixCell({ value }: { value: boolean | string }) {
         <span className="text-[10px] text-ink-soft font-bold">{value}</span>
       )}
     </td>
+  )
+}
+
+/** Apple Settings-style row: soft icon well + title + supporting line. */
+function FinePrintRow({
+  icon,
+  iconClass,
+  title,
+  body,
+  last = false,
+}: {
+  icon: ReactNode
+  iconClass: string
+  title: string
+  body: string
+  last?: boolean
+}) {
+  return (
+    <div className={`flex gap-3 px-3.5 py-3.5 ${last ? '' : 'border-b border-white/10'}`}>
+      <span
+        className={`mt-0.5 w-7 h-7 shrink-0 rounded-[8px] ${iconClass}
+                    flex items-center justify-center text-white shadow-sm`}
+        aria-hidden
+      >
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-semibold tracking-tight text-ink leading-snug">{title}</p>
+        <p className="mt-0.5 text-[12px] font-medium text-ink-soft leading-relaxed">{body}</p>
+      </div>
+    </div>
+  )
+}
+
+function LockGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M7 11V8a5 5 0 0 1 10 0v3"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+      <rect x="5" y="11" width="14" height="10" rx="2.5" fill="currentColor" />
+    </svg>
+  )
+}
+
+function RenewGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M20 12a8 8 0 1 1-2.3-5.6"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+      <path d="M20 4v5h-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function ShieldGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 2 4.5 5v6.5c0 5 3.4 9.4 7.5 10.5 4.1-1.1 7.5-5.5 7.5-10.5V5L12 2Z" />
+      <path
+        d="M10.2 12.8 8.5 11l-1.2 1.2 2.9 2.9 5-5-1.2-1.2-3.8 3.9Z"
+        fill="white"
+        fillOpacity="0.92"
+      />
+    </svg>
+  )
+}
+
+function GiftGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="4" y="10" width="16" height="11" rx="2" fill="currentColor" />
+      <path d="M3 10h18V6.5A1.5 1.5 0 0 0 19.5 5H4.5A1.5 1.5 0 0 0 3 6.5V10Z" fill="currentColor" />
+      <path d="M12 5v16" stroke="#1a1033" strokeWidth="1.8" opacity="0.35" />
+      <path
+        d="M12 5c-1.8-2.4-4.5-1.6-4.5.4C7.5 7.2 10 8 12 8c2 0 4.5-.8 4.5-2.6C16.5 3.4 13.8 2.6 12 5Z"
+        fill="currentColor"
+      />
+    </svg>
   )
 }
