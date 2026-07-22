@@ -1,26 +1,35 @@
 /**
- * PennyPlay Plus — R200 for a full year, billed yearly. One screen: what
- * you get, what it costs, current status, and the pay button. Real
- * checkout via PayFast when merchant keys are configured; otherwise a
- * clearly-labelled test mode so the flow works end to end.
+ * PennyPlay Plus — the pricing page. A world-class-but-honest pricing
+ * table (free look vs monthly vs yearly with features, pros AND cons),
+ * the member's current status with days-left meter, cancel/upgrade
+ * controls, payment confirmation states (confirming → active / failed /
+ * cancelled) and the payment history. Real checkout via the
+ * payfast-checkout edge function (or legacy client URL); clearly-labelled
+ * test mode otherwise.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAppStore } from '../state/appStore'
-import { getSupabaseClient } from '../lib/supabaseClient'
 import {
-  clampToOneYear,
   daysLeft,
   loadMembership,
   membershipStatus,
+  MONTHLY_PRICE_CENTS,
   payfastConfig,
   PLUS_DAYS,
   PLUS_PRICE_CENTS,
-  saveMembership,
   type Membership,
+  type PlanId,
 } from '../lib/membership'
-import { payForYear } from '../lib/plusCheckout'
+import { FEATURE_MATRIX, TIERS, YEARLY_SAVING_CENTS, type PlanTier } from '../lib/plans'
+import { payForPlan } from '../lib/plusCheckout'
+import {
+  cancelPlusSubscription,
+  fetchPayments,
+  syncMembershipFromServer,
+  type PaymentRecord,
+} from '../lib/plusServer'
 import {
   adoptServerReferralCode,
   hasShared,
@@ -30,34 +39,40 @@ import {
   saveRewardUnlocked,
   shareApp,
 } from '../lib/referral'
+import { getSupabaseClient } from '../lib/supabaseClient'
 import { formatDateLong, todaySAST } from '../lib/dates'
 import { formatZAR } from '../lib/money'
 import { Screen } from '../components/layout/Screen'
 import { Card } from '../components/ui/Card'
 import { Button3D } from '../components/ui/Button3D'
+import { Sheet } from '../components/ui/Sheet'
 import { Randy } from '../components/ui/Randy'
 
-const PERKS: string[] = [
-  'Fun money that always matches your real cash',
-  'Savings goals, milestones & auto-save',
-  'Quests, streaks, XP & rank themes',
-  'Smart nudges: pay day, overspend, streaks',
-  'Month tracker, year view & net worth',
-  'Every new feature for the next 12 months',
-]
+const CONFIRM_POLL_MS = 4_000
+const CONFIRM_TIMEOUT_MS = 90_000
 
 export function Plus() {
   const profile = useAppStore((s) => s.data.profile)
   const [membership, setMembership] = useState<Membership | null>(loadMembership)
-  const [busy, setBusy] = useState(false)
+  const [payments, setPayments] = useState<PaymentRecord[]>([])
+  const [busyPlan, setBusyPlan] = useState<PlanId | null>(null)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [params] = useSearchParams()
   const justPaid = params.get('paid') === '1'
-  const cancelled = params.get('cancelled') === '1'
+  const wasCancelled = params.get('cancelled') === '1'
+  const [confirming, setConfirming] = useState(false)
+  const [confirmTimedOut, setConfirmTimedOut] = useState(false)
+  const [cancelSheet, setCancelSheet] = useState(false)
+  const [cancelBusy, setCancelBusy] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
+  const pollUntil = useRef(0)
 
   const today = todaySAST()
   const status = membershipStatus(membership, today)
   const remainingDays = daysLeft(membership, today)
-  const config = payfastConfig()
+  const isCancelled = membership?.billing === 'cancelled'
+  const connected = getSupabaseClient() !== null
+  const paymentsConfigured = connected || payfastConfig() !== null
 
   // Give R… get R50: share code + reward state.
   const [refCode, setRefCode] = useState(myReferralCode)
@@ -65,49 +80,22 @@ export function Plus() {
   const [reward, setReward] = useState(rewardUnlocked)
   const [shareNote, setShareNote] = useState<string | null>(null)
   const isFirstPayment = membership === null
-  const priceCents = plusPriceCents({
+  const yearlyPriceCents = plusPriceCents({
     fullPriceCents: PLUS_PRICE_CENTS,
     unlocked: reward,
     isFirstPayment,
   })
 
-  async function share() {
-    const result = await shareApp(refCode)
-    if (result !== 'failed') setShared(true)
-    setShareNote(
-      result === 'copied'
-        ? 'Link copied — paste it to a friend!'
-        : result === 'shared'
-          ? 'Shared! Your R50 unlocks when they sign up.'
-          : 'Sharing is blocked here — your code is above.',
-    )
-    window.setTimeout(() => setShareNote(null), 3000)
-  }
-
-  // Supabase mode: the server-verified membership wins over local state.
+  // Server truth: membership row, referral state and payment history.
   useEffect(() => {
-    const supabase = getSupabaseClient()
-    if (!supabase) return
     void (async () => {
+      const server = await syncMembershipFromServer()
+      setMembership(server)
+      setPayments(await fetchPayments())
+      const supabase = getSupabaseClient()
+      if (!supabase) return
       const { data: auth } = await supabase.auth.getUser()
       if (!auth.user) return
-      const { data } = await supabase
-        .from('memberships')
-        .select('paid_until, payment_ref, amount_cents, activated_at')
-        .eq('user_id', auth.user.id)
-        .maybeSingle()
-      if (data?.paid_until) {
-        const server: Membership = clampToOneYear({
-          paidUntil: data.paid_until as string,
-          paymentRef: (data.payment_ref as string) ?? 'payfast',
-          amountCents: (data.amount_cents as number) ?? PLUS_PRICE_CENTS,
-          activatedAt: (data.activated_at as string) ?? '',
-        })
-        saveMembership(server)
-        setMembership(server)
-      }
-      // Share links must use the account's code, and a signed-up friend
-      // unlocks the R50 — both server truths.
       const { data: me } = await supabase
         .from('profiles')
         .select('referral_code')
@@ -128,19 +116,78 @@ export function Plus() {
     })()
   }, [justPaid])
 
-  async function pay() {
-    if (busy) return
-    setBusy(true)
-    const result = await payForYear({
-      priceCents,
-      referralDiscount: reward && isFirstPayment,
+  // Back from PayFast with ?paid=1: the ITN usually lands within seconds —
+  // poll the server until the membership activates (or we stop hoping).
+  useEffect(() => {
+    if (!justPaid || !connected) return
+    if (membershipStatus(loadMembership(), todaySAST()) === 'active') return
+    setConfirming(true)
+    pollUntil.current = Date.now() + CONFIRM_TIMEOUT_MS
+    const timer = window.setInterval(async () => {
+      const server = await syncMembershipFromServer()
+      if (membershipStatus(server, todaySAST()) === 'active') {
+        setMembership(server)
+        setPayments(await fetchPayments())
+        setConfirming(false)
+        window.clearInterval(timer)
+      } else if (Date.now() > pollUntil.current) {
+        setConfirming(false)
+        setConfirmTimedOut(true)
+        window.clearInterval(timer)
+      }
+    }, CONFIRM_POLL_MS)
+    return () => window.clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [justPaid, connected])
+
+  async function pay(plan: PlanId) {
+    if (busyPlan) return
+    setBusyPlan(plan)
+    setCheckoutError(null)
+    const result = await payForPlan({
+      plan,
+      priceCents: plan === 'yearly' ? yearlyPriceCents : MONTHLY_PRICE_CENTS,
+      referralDiscount: plan === 'yearly' && reward && isFirstPayment,
       current: membership,
       email: profile?.email || undefined,
       name: profile?.displayName || undefined,
     })
-    if (result !== 'redirected') setMembership(result)
-    setBusy(false)
+    if (result === 'redirected') return // browser is leaving for PayFast
+    if (typeof result === 'object' && 'error' in result) setCheckoutError(result.error)
+    else setMembership(result)
+    setBusyPlan(null)
   }
+
+  async function confirmCancel() {
+    if (cancelBusy) return
+    setCancelBusy(true)
+    setCancelError(null)
+    const result = await cancelPlusSubscription()
+    setCancelBusy(false)
+    if (result.ok) {
+      setMembership(result.membership)
+      setCancelSheet(false)
+    } else {
+      setCancelError(result.message)
+    }
+  }
+
+  async function share() {
+    const result = await shareApp(refCode)
+    if (result !== 'failed') setShared(true)
+    setShareNote(
+      result === 'copied'
+        ? 'Link copied — paste it to a friend!'
+        : result === 'shared'
+          ? 'Shared! Your R50 unlocks when they sign up.'
+          : 'Sharing is blocked here — your code is above.',
+    )
+    window.setTimeout(() => setShareNote(null), 3000)
+  }
+
+  const lastPayment = payments[0]
+  const showFailedBanner =
+    lastPayment && lastPayment.status === 'failed' && !confirming && status !== 'active'
 
   return (
     <Screen withTabBar={false}>
@@ -156,116 +203,241 @@ export function Plus() {
         <h1 className="font-display font-extrabold text-2xl">PennyPlay Plus</h1>
       </header>
 
-      {/* Offer / member card */}
-      <div
-        className="rounded-[26px] p-[2px] mb-4"
-        style={{ background: 'linear-gradient(120deg,#7c3aed,#22d3ee,#a3e635)' }}
-      >
-        <Card className="!border-transparent text-center pt-6 pb-5 relative overflow-hidden">
-          <div
+      {/* ----- Payment outcome banners ----- */}
+      {confirming && (
+        <Card className="mb-4 flex items-center gap-3 !border-aqua/40">
+          <span
             aria-hidden
-            className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent"
+            className="w-5 h-5 shrink-0 rounded-full border-2 border-aqua border-t-transparent animate-spin"
           />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute left-1/2 top-8 -translate-x-1/2 w-52 h-28
-                       rounded-full bg-gold/15 blur-3xl"
-          />
-          <div className="relative">
-            <Randy mood="celebrating" size={76} className="mx-auto" />
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-ink-faint mt-2">
-              PennyPlay Plus
+          <div>
+            <p className="font-display font-extrabold text-sm text-aqua">Confirming your payment…</p>
+            <p className="text-xs text-ink-soft font-semibold">
+              PayFast is telling us it went through — this usually takes a few seconds.
             </p>
-            <p className="font-display font-extrabold leading-tight mt-1">
-              <span className="text-gradient-gold animate-shimmer text-5xl">
-                {formatZAR(PLUS_PRICE_CENTS, { showCents: false })}
-              </span>
-              <span className="text-base text-ink-soft"> / year</span>
-            </p>
-            {reward && isFirstPayment && (
-              <p className="text-xs font-extrabold text-lime mt-1">
-                🎁 {formatZAR(priceCents, { showCents: false })} for your first year — friend
-                reward applied
-              </p>
-            )}
-
-            <div className="flex items-stretch justify-center divide-x divide-edge mt-4">
-              <div className="flex-1 px-1.5 flex flex-col items-center gap-1">
-                <span className="font-display font-extrabold text-[13px] text-ink leading-none">One</span>
-                <span className="text-[9.5px] text-ink-faint font-bold leading-tight">payment</span>
-              </div>
-              <div className="flex-1 px-1.5 flex flex-col items-center gap-1">
-                <span className="font-display font-extrabold text-[13px] text-ink leading-none">Yearly</span>
-                <span className="text-[9.5px] text-ink-faint font-bold leading-tight">billing</span>
-              </div>
-              <div className="flex-1 px-1.5 flex flex-col items-center gap-1">
-                <span className="font-display font-extrabold text-[13px] text-ink leading-none">12 months</span>
-                <span className="text-[9.5px] text-ink-faint font-bold leading-tight">full access</span>
-              </div>
-            </div>
-
-            {status === 'active' && membership && (
-              <div className="mt-4 px-2 text-left">
-                <p className="text-center text-[11px] font-extrabold text-lime mb-1.5">
-                  ✓ Active until {formatDateLong(membership.paidUntil)}{' '}
-                  {membership.paidUntil.slice(0, 4)} · {remainingDays} days left
-                </p>
-                <div className="relative h-2 rounded-full bg-bg-deep border border-edge/60">
-                  <div
-                    className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-lime to-aqua"
-                    style={{ width: `${Math.max(3, Math.round((remainingDays / PLUS_DAYS) * 100))}%` }}
-                  />
-                </div>
-                <div className="flex justify-between mt-1.5 text-[9px] font-extrabold uppercase tracking-wider text-ink-faint">
-                  <span>Your year</span>
-                  <span>Renews by choice 🎉</span>
-                </div>
-              </div>
-            )}
-            {status === 'expired' && (
-              <p
-                className="inline-block mt-4 px-3 py-1 rounded-full bg-coral/15 border border-coral/40
-                           text-coral text-xs font-extrabold"
-              >
-                Your year is up — renew to keep full access
-              </p>
-            )}
-            {justPaid && status !== 'active' && (
-              <p className="text-xs text-aqua font-bold mt-4">
-                Payment received — your year activates as soon as PayFast confirms it. Check back in
-                a minute.
-              </p>
-            )}
-            {cancelled && (
-              <p className="text-xs text-ink-faint font-bold mt-4">Payment cancelled — no charge.</p>
-            )}
           </div>
         </Card>
-      </div>
-
-      {status === 'active' ? (
-        // One year at a time — no stacking. Renewal appears when it lapses.
-        <p className="text-center text-sm text-ink-soft font-semibold py-2">
-          🎉 You're all set for the year. Renewal opens here when your year is up.
-        </p>
-      ) : (
-        <>
-          <Button3D full size="lg" variant="gold" disabled={busy} onClick={() => void pay()}>
-            {status === 'expired'
-              ? `Renew — ${formatZAR(priceCents, { showCents: false })} for a year`
-              : `Pay ${formatZAR(priceCents, { showCents: false })} for a year`}
-          </Button3D>
-          <p className="text-center text-[10px] text-ink-faint font-bold mt-3 pb-6">
-            {config
-              ? `Secure checkout by PayFast${config.sandbox ? ' (sandbox)' : ''}. No auto-renewal — you choose when to pay again.`
-              : 'Test mode: payments aren’t connected yet, so this activates a trial year on this device.'}
+      )}
+      {confirmTimedOut && status !== 'active' && (
+        <Card className="mb-4 !border-gold/40">
+          <p className="font-display font-extrabold text-sm text-gold">Still waiting on PayFast</p>
+          <p className="text-xs text-ink-soft font-semibold mt-1">
+            Your payment is taking longer than usual to confirm. If you were charged, your plan
+            will activate automatically — check back in a few minutes. If you weren't charged, you
+            can simply try again below. No double-billing: every payment is verified before it
+            counts.
           </p>
+        </Card>
+      )}
+      {wasCancelled && status !== 'active' && !confirming && (
+        <Card className="mb-4">
+          <p className="text-xs text-ink-soft font-bold">
+            Payment cancelled — no charge. Whenever you're ready, the plans are below.
+          </p>
+        </Card>
+      )}
+      {showFailedBanner && (
+        <Card className="mb-4 !border-coral/40">
+          <p className="font-display font-extrabold text-sm text-coral">Your last payment failed</p>
+          <p className="text-xs text-ink-soft font-semibold mt-1">
+            The bank declined the charge — no money moved and nothing was activated. Check your
+            card and try again below.
+          </p>
+        </Card>
+      )}
+      {checkoutError && (
+        <Card className="mb-4 !border-coral/40">
+          <p className="text-xs text-coral font-bold">{checkoutError}</p>
+        </Card>
+      )}
+
+      {/* ----- Member status card ----- */}
+      {membership && status !== 'none' && (
+        <div
+          className="rounded-[26px] p-[2px] mb-4"
+          style={{ background: 'linear-gradient(120deg,#7c3aed,#22d3ee,#a3e635)' }}
+        >
+          <Card className="!border-transparent relative overflow-hidden">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent"
+            />
+            <div className="relative">
+              <div className="flex items-center gap-3">
+                <Randy mood={status === 'active' ? 'celebrating' : 'happy'} size={52} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-ink-faint">
+                    Your plan
+                  </p>
+                  <p className="font-display font-extrabold text-lg leading-tight">
+                    {membership.plan === 'monthly' ? '🌙 Plus Monthly' : '⭐ Plus Yearly'}
+                    {membership.paymentRef === 'test-mode' && (
+                      <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-gold/15 text-gold font-bold uppercase">
+                        test
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <span
+                  className={`text-[10px] px-2.5 py-1 rounded-full font-extrabold uppercase tracking-wider ${
+                    status === 'active'
+                      ? isCancelled
+                        ? 'bg-gold/15 text-gold'
+                        : 'bg-lime/15 text-lime'
+                      : 'bg-coral/15 text-coral'
+                  }`}
+                >
+                  {status === 'active' ? (isCancelled ? 'ending' : 'active') : 'expired'}
+                </span>
+              </div>
+
+              {status === 'active' ? (
+                <div className="mt-3">
+                  <p className="text-[11px] font-extrabold text-ink-soft mb-1.5">
+                    {isCancelled ? (
+                      <>
+                        Auto-billing stopped — access until{' '}
+                        <b className="text-ink">
+                          {formatDateLong(membership.paidUntil)} {membership.paidUntil.slice(0, 4)}
+                        </b>{' '}
+                        · {remainingDays} days left
+                      </>
+                    ) : (
+                      <>
+                        {membership.plan === 'monthly' ? 'Renews around' : 'Paid up to'}{' '}
+                        <b className="text-ink">
+                          {formatDateLong(membership.paidUntil)} {membership.paidUntil.slice(0, 4)}
+                        </b>{' '}
+                        · {remainingDays} days left
+                      </>
+                    )}
+                  </p>
+                  <div className="relative h-2 rounded-full bg-bg-deep border border-edge/60">
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-lime to-aqua"
+                      style={{
+                        width: `${Math.max(
+                          3,
+                          Math.min(
+                            100,
+                            Math.round(
+                              (remainingDays / (membership.plan === 'monthly' ? 33 : PLUS_DAYS)) * 100,
+                            ),
+                          ),
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-coral font-extrabold mt-2">
+                  Your plan lapsed on {formatDateLong(membership.paidUntil)}{' '}
+                  {membership.paidUntil.slice(0, 4)} — pick a plan below to jump back in.
+                </p>
+              )}
+
+              {/* Plan management */}
+              {status === 'active' && membership.plan === 'monthly' && (
+                <div className="flex flex-col gap-2 mt-4">
+                  <Button3D
+                    full
+                    variant="gold"
+                    size="md"
+                    disabled={busyPlan !== null}
+                    onClick={() => void pay('yearly')}
+                  >
+                    ⭐ Upgrade to Yearly — save R{YEARLY_SAVING_CENTS / 100} a year
+                  </Button3D>
+                  {!isCancelled && (
+                    <Button3D full variant="ghost" size="sm" onClick={() => setCancelSheet(true)}>
+                      Cancel subscription
+                    </Button3D>
+                  )}
+                  {isCancelled && (
+                    <p className="text-[10px] text-ink-faint font-bold text-center">
+                      Changed your mind? Pick a plan below to restart — your remaining days carry
+                      over.
+                    </p>
+                  )}
+                </div>
+              )}
+              {status === 'active' && membership.plan === 'yearly' && (
+                <p className="text-[11px] text-ink-soft font-semibold mt-3 text-center">
+                  🎉 You're set for the year. No auto-renewal — renewal opens here when your year
+                  is up.
+                </p>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ----- Pricing table ----- */}
+      {!(status === 'active' && membership?.plan === 'yearly') && (
+        <>
+          <div className="text-center mt-6 mb-4">
+            <Randy mood="happy" size={64} className="mx-auto" />
+            <h2 className="font-display font-extrabold text-xl mt-2">Pick your plan</h2>
+            <p className="text-xs text-ink-soft font-semibold mt-1 max-w-[36ch] mx-auto">
+              Same full app on both paid plans — the only difference is how you pay.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-4 mb-2">
+            {TIERS.map((t) => (
+              <TierCard
+                key={t.id}
+                tier={t}
+                currentPlan={status === 'active' ? membership?.plan ?? null : null}
+                busy={busyPlan}
+                displayPriceCents={
+                  t.id === 'yearly' && reward && isFirstPayment ? yearlyPriceCents : t.priceCents
+                }
+                discounted={t.id === 'yearly' && reward && isFirstPayment}
+                onPay={(plan) => void pay(plan)}
+              />
+            ))}
+          </div>
+          <p className="text-center text-[10px] text-ink-faint font-bold mb-5">
+            {paymentsConfigured
+              ? 'Secure checkout by PayFast — cards, EFT & more. Your card details never touch PennyPlay.'
+              : 'Test mode: payments aren’t connected yet, so plans activate a trial on this device.'}
+          </p>
+
+          {/* Feature comparison matrix */}
+          <Card className="mb-5 !px-3">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-ink-faint mb-2 px-1">
+              Compare everything
+            </p>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="text-[9px] font-extrabold uppercase tracking-wider text-ink-faint">
+                  <th className="py-1.5 pr-1 font-extrabold w-[46%]">Feature</th>
+                  <th className="py-1.5 text-center">Free</th>
+                  <th className="py-1.5 text-center">Monthly</th>
+                  <th className="py-1.5 text-center text-gold">Yearly</th>
+                </tr>
+              </thead>
+              <tbody>
+                {FEATURE_MATRIX.map((row) => (
+                  <tr key={row.label} className="border-t border-edge/60">
+                    <td className="py-2 pr-1 text-[11px] font-bold text-ink-soft leading-tight">
+                      {row.label}
+                    </td>
+                    <MatrixCell value={row.free} />
+                    <MatrixCell value={row.monthly} />
+                    <MatrixCell value={row.yearly} />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
         </>
       )}
 
-      {/* Give R50, get R50 off — the gift ticket */}
+      {/* ----- Give R50, get R50 off ----- */}
       <div
-        className="rounded-[24px] p-[1.5px] mt-4 mb-4"
+        className="rounded-[24px] p-[1.5px] mb-4"
         style={{ background: 'linear-gradient(120deg,#22d3ee,#7c3aed)' }}
       >
         <Card className="!border-transparent">
@@ -317,27 +489,240 @@ export function Plus() {
         </Card>
       </div>
 
-      {/* What you get */}
+      {/* ----- Payment history ----- */}
+      {payments.length > 0 && (
+        <Card className="mb-4">
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-ink-faint mb-2">
+            Payment history
+          </p>
+          <div className="flex flex-col divide-y divide-edge/60">
+            {payments.map((p) => (
+              <div key={`${p.pfPaymentId}-${p.status}-${p.createdAt}`} className="flex items-center gap-3 py-2">
+                <span aria-hidden className="text-base">
+                  {p.status === 'complete' ? '✅' : p.status === 'cancelled' ? '🛑' : '⚠️'}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-extrabold leading-tight truncate">
+                    {p.plan === 'monthly' ? 'Plus Monthly' : 'Plus Yearly'}
+                    <span className="text-ink-faint font-bold"> · {p.createdAt.slice(0, 10)}</span>
+                  </p>
+                  <p
+                    className={`text-[10px] font-bold uppercase tracking-wider ${
+                      p.status === 'complete'
+                        ? 'text-lime'
+                        : p.status === 'cancelled'
+                          ? 'text-ink-faint'
+                          : 'text-coral'
+                    }`}
+                  >
+                    {p.status === 'complete'
+                      ? 'Paid'
+                      : p.status === 'cancelled'
+                        ? 'Subscription cancelled'
+                        : 'Failed — not charged'}
+                  </p>
+                </div>
+                {p.status === 'complete' && (
+                  <span className="font-display font-extrabold text-sm">
+                    {formatZAR(p.amountCents, { showCents: false })}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* ----- Fine print ----- */}
       <Card className="mb-8">
-        <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-ink-faint mb-3">
-          Everything, unlocked
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-ink-faint mb-2">
+          The honest fine print
         </p>
-        <div className="flex flex-col gap-2.5">
-          {PERKS.map((text) => (
-            <div key={text} className="flex items-center gap-3">
-              <span
-                className="w-6 h-6 shrink-0 rounded-full bg-gradient-to-b from-lime to-emerald
-                           flex items-center justify-center text-[11px] font-extrabold text-[#1a2e05]"
-                aria-hidden
-              >
-                ✓
-              </span>
-              <p className="text-sm text-ink-soft font-semibold leading-snug">{text}</p>
-            </div>
-          ))}
-        </div>
+        <ul className="flex flex-col gap-1.5 text-[11px] text-ink-soft font-semibold leading-snug">
+          <li>
+            🔐 Payments are processed by <b className="text-ink">PayFast</b> — your card details
+            never touch PennyPlay's servers, and every payment is verified server-side before it
+            activates anything.
+          </li>
+          <li>
+            🌙 Monthly auto-renews via PayFast until you cancel. Cancel in one tap here — you keep
+            access to the end of the period you paid for.
+          </li>
+          <li>⭐ Yearly is a single payment. It never auto-renews; you choose when to pay again.</li>
+          <li>💳 A failed charge never removes access you already paid for.</li>
+          <li>📈 Upgrading from Monthly to Yearly stops the monthly billing automatically.</li>
+        </ul>
       </Card>
 
+      {/* ----- Cancel confirmation ----- */}
+      <Sheet open={cancelSheet} onClose={() => setCancelSheet(false)} title="Cancel Plus Monthly?">
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-ink-soft">
+            This stops the R25 monthly billing at PayFast. You keep full access until{' '}
+            <b className="text-ink">
+              {membership ? `${formatDateLong(membership.paidUntil)} ${membership.paidUntil.slice(0, 4)}` : ''}
+            </b>
+            , then the app locks until you subscribe again. Nothing already paid is lost.
+          </p>
+          {cancelError && <p className="text-xs text-coral font-bold">{cancelError}</p>}
+          <Button3D variant="coral" full disabled={cancelBusy} onClick={() => void confirmCancel()}>
+            {cancelBusy ? 'Cancelling…' : 'Yes, stop billing'}
+          </Button3D>
+          <Button3D variant="ghost" full onClick={() => setCancelSheet(false)}>
+            Keep my subscription
+          </Button3D>
+        </div>
+      </Sheet>
     </Screen>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+
+function TierCard({
+  tier,
+  currentPlan,
+  busy,
+  displayPriceCents,
+  discounted,
+  onPay,
+}: {
+  tier: PlanTier
+  currentPlan: PlanId | null
+  busy: PlanId | null
+  displayPriceCents: number
+  discounted: boolean
+  onPay: (plan: PlanId) => void
+}) {
+  const isPaid = tier.id !== 'free'
+  const isCurrent = isPaid && currentPlan === tier.id
+  const highlight = tier.badge !== undefined
+
+  const inner = (
+    <Card className={`relative overflow-hidden ${highlight ? '!border-transparent' : ''}`}>
+      {tier.badge && (
+        <span
+          className="absolute top-3 right-3 text-[9px] px-2.5 py-1 rounded-full font-extrabold
+                     uppercase tracking-wider bg-gold/15 text-gold border border-gold/40"
+        >
+          🏆 {tier.badge}
+        </span>
+      )}
+      <div className="flex items-center gap-3">
+        <span className="text-2xl" aria-hidden>
+          {tier.emoji}
+        </span>
+        <div>
+          <p className="font-display font-extrabold text-base leading-tight">{tier.name}</p>
+          <p className="text-[11px] text-ink-faint font-bold">{tier.tagline}</p>
+        </div>
+      </div>
+
+      <p className="font-display font-extrabold leading-tight mt-3">
+        <span className={`text-4xl ${highlight ? 'text-gradient-gold animate-shimmer' : ''}`}>
+          {formatZAR(displayPriceCents, { showCents: false })}
+        </span>
+        <span className="text-sm text-ink-soft"> {tier.per}</span>
+        {discounted && (
+          <span className="ml-2 text-xs text-ink-faint line-through font-bold">
+            {formatZAR(tier.priceCents, { showCents: false })}
+          </span>
+        )}
+      </p>
+      <p className="text-[10px] text-ink-faint font-bold mt-0.5">
+        {discounted ? '🎁 Friend reward applied to your first year' : tier.priceNote}
+      </p>
+
+      <div className="flex flex-col gap-1.5 mt-3">
+        {tier.includes.map((f) => (
+          <div key={f} className="flex items-start gap-2">
+            <span
+              className="mt-[1px] w-[18px] h-[18px] shrink-0 rounded-full bg-gradient-to-b from-lime to-emerald
+                         flex items-center justify-center text-[9px] font-extrabold text-[#1a2e05]"
+              aria-hidden
+            >
+              ✓
+            </span>
+            <p className="text-xs text-ink-soft font-semibold leading-snug">{f}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Pros & cons */}
+      <div className="grid grid-cols-2 gap-2 mt-3">
+        <div className="rounded-2xl bg-bg-deep border border-edge/60 p-2.5">
+          <p className="text-[9px] font-extrabold uppercase tracking-wider text-lime mb-1">Pros</p>
+          {tier.pros.map((p) => (
+            <p key={p} className="text-[10.5px] text-ink-soft font-semibold leading-snug py-0.5">
+              <span className="text-lime">+</span> {p}
+            </p>
+          ))}
+        </div>
+        <div className="rounded-2xl bg-bg-deep border border-edge/60 p-2.5">
+          <p className="text-[9px] font-extrabold uppercase tracking-wider text-coral mb-1">Cons</p>
+          {tier.cons.map((c) => (
+            <p key={c} className="text-[10.5px] text-ink-soft font-semibold leading-snug py-0.5">
+              <span className="text-coral">−</span> {c}
+            </p>
+          ))}
+        </div>
+      </div>
+
+      {isPaid && (
+        <div className="mt-3.5">
+          {isCurrent ? (
+            <p
+              className="text-center text-[11px] font-extrabold text-lime bg-lime/10 border border-lime/30
+                         rounded-2xl py-2.5"
+            >
+              ✓ Your current plan
+            </p>
+          ) : (
+            <Button3D
+              full
+              size="md"
+              variant={tier.ctaVariant ?? 'gold'}
+              disabled={busy !== null}
+              onClick={() => onPay(tier.id as PlanId)}
+            >
+              {busy === tier.id ? 'Opening secure checkout…' : tier.cta}
+            </Button3D>
+          )}
+        </div>
+      )}
+      {!isPaid && (
+        <p className="text-center text-[10px] text-ink-faint font-bold mt-3.5">
+          You're on it right now — that's the countdown you keep hitting 😄
+        </p>
+      )}
+    </Card>
+  )
+
+  if (!highlight) return inner
+  return (
+    <div
+      className="rounded-[26px] p-[2px]"
+      style={{ background: 'linear-gradient(120deg,#7c3aed,#22d3ee,#a3e635)' }}
+    >
+      {inner}
+    </div>
+  )
+}
+
+function MatrixCell({ value }: { value: boolean | string }) {
+  return (
+    <td className="py-2 text-center align-middle">
+      {value === true ? (
+        <span className="text-lime font-extrabold" aria-label="included">
+          ✓
+        </span>
+      ) : value === false ? (
+        <span className="text-ink-faint font-extrabold" aria-label="not included">
+          ✗
+        </span>
+      ) : (
+        <span className="text-[10px] text-ink-soft font-bold">{value}</span>
+      )}
+    </td>
   )
 }

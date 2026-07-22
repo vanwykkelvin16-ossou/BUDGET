@@ -1,19 +1,25 @@
 /**
- * PennyPlay Plus — the yearly membership. One payment of R200 unlocks the
- * full app for 12 months, billed yearly (no auto-debit surprises: when the
- * year is up, you pay again).
+ * PennyPlay Plus — the membership. Two paid plans:
+ *
+ *   monthly — R25/month, auto-billed by PayFast, cancel anytime
+ *   yearly  — R200 once for 12 months (no auto-debit surprises: when the
+ *             year is up, you pay again)
  *
  * Payments run through PayFast (South Africa). With merchant env vars set
- * the Pay button redirects to real checkout and the payfast-itn edge
- * function activates the membership server-side; without them the flow
- * runs in clearly-labelled test mode so it can be tried end to end.
- * Membership state lives in Supabase when connected, and in localStorage
- * in on-device mode.
+ * on the edge functions, checkout is built and signed server-side
+ * (payfast-checkout), confirmed server-side (payfast-itn) and cancelled
+ * server-side (payfast-cancel); without them the flow runs in
+ * clearly-labelled test mode so it can be tried end to end. Membership
+ * state lives in Supabase when connected — the server row always wins —
+ * and in localStorage in on-device mode.
  */
 
 import { addDays, todaySAST } from './dates'
 
-export const PLUS_PRICE_CENTS = 20_000 // R200,00
+export type PlanId = 'monthly' | 'yearly'
+
+export const PLUS_PRICE_CENTS = 20_000 // yearly: R200,00
+export const MONTHLY_PRICE_CENTS = 2_500 // monthly: R25,00
 export const PLUS_DAYS = 365
 
 export interface Membership {
@@ -23,6 +29,10 @@ export interface Membership {
   paymentRef: string
   amountCents: number
   activatedAt: string
+  /** Which plan the last successful payment bought. */
+  plan: PlanId
+  /** 'cancelled' = auto-billing stopped; access still runs to paidUntil. */
+  billing: 'active' | 'cancelled'
 }
 
 const KEY = 'pennyplay:membership:v1'
@@ -36,11 +46,23 @@ export function clampToOneYear(m: Membership, today: string = todaySAST()): Memb
   return m.paidUntil > cap ? { ...m, paidUntil: cap } : m
 }
 
+/** Fill fields older stored versions didn't have. */
+function normalise(raw: Partial<Membership>): Membership {
+  return {
+    paidUntil: raw.paidUntil ?? '',
+    paymentRef: raw.paymentRef ?? '',
+    amountCents: raw.amountCents ?? PLUS_PRICE_CENTS,
+    activatedAt: raw.activatedAt ?? '',
+    plan: raw.plan === 'monthly' ? 'monthly' : 'yearly',
+    billing: raw.billing === 'cancelled' ? 'cancelled' : 'active',
+  }
+}
+
 export function loadMembership(): Membership | null {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return null
-    const clamped = clampToOneYear(JSON.parse(raw) as Membership)
+    const clamped = clampToOneYear(normalise(JSON.parse(raw) as Partial<Membership>))
     localStorage.setItem(KEY, JSON.stringify(clamped))
     return clamped
   } catch {
@@ -51,6 +73,15 @@ export function loadMembership(): Membership | null {
 export function saveMembership(m: Membership): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(m))
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+/** Server says there is no membership — drop the local cache. */
+export function clearMembership(): void {
+  try {
+    localStorage.removeItem(KEY)
   } catch {
     /* storage unavailable */
   }
@@ -75,8 +106,20 @@ export function yearFrom(m: Membership | null, today: string = todaySAST()): str
   return addDays(base, PLUS_DAYS)
 }
 
+/** A month (with billing grace) of access — mirrors the ITN's arithmetic. */
+export function monthFrom(m: Membership | null, today: string = todaySAST()): string {
+  const base = m && today <= m.paidUntil ? m.paidUntil : today
+  return addDays(base, 33)
+}
+
 /* ------------------------------------------------------------------ */
-/* PayFast checkout                                                     */
+/* Legacy client-built PayFast checkout (yearly only)                   */
+/*                                                                      */
+/* Kept as a fallback for deployments that set the VITE_PAYFAST_* vars  */
+/* but haven't configured the payfast-checkout edge function. The       */
+/* subscription (monthly) plan REQUIRES the edge function because       */
+/* PayFast only accepts signed subscription requests, and signing needs */
+/* the server-side passphrase.                                          */
 /* ------------------------------------------------------------------ */
 
 export interface PayfastConfig {
@@ -125,6 +168,7 @@ export function payfastCheckoutUrl(params: {
   if (params.name) query.set('name_first', params.name)
   if (params.userId) query.set('custom_str1', params.userId)
   if (params.referralDiscount) query.set('custom_str2', 'ref50')
+  query.set('custom_str3', 'yearly')
   // Server-side confirmation: PayFast posts the ITN here and the edge
   // function writes the membership row.
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
