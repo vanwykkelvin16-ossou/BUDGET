@@ -11,13 +11,15 @@
  * POST JSON { plan: 'yearly', origin: string }
  *   → { configured: true, host, fields }  — client POSTs `fields` to
  *     https://{host}/eng/process as a form
- *   → { configured: false }               — merchant env not set; the
- *     client falls back to its test-mode flow
+ *
+ * Merchant credentials come from payfastEnv(): live secrets when set,
+ * PayFast's public sandbox merchant otherwise — so real sandbox checkout
+ * works before any secrets exist.
  *
  * Deploy: supabase functions deploy payfast-checkout
  * Env:    PAYFAST_MERCHANT_ID, PAYFAST_MERCHANT_KEY,
  *         PAYFAST_PASSPHRASE (required for yearly auto-renew),
- *         PAYFAST_SANDBOX=1 while testing
+ *         PAYFAST_SANDBOX=1 to test live keys against the sandbox
  */
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -29,6 +31,7 @@ import {
   isPlanId,
   payfastHost,
 } from '../_shared/payfast.ts'
+import { payfastEnv } from '../_shared/payfastEnv.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -58,11 +61,7 @@ Deno.serve(async (req) => {
     } = await userClient.auth.getUser()
     if (!user) return json({ error: 'unauthorized' }, 401)
 
-    const merchantId = Deno.env.get('PAYFAST_MERCHANT_ID') ?? ''
-    const merchantKey = Deno.env.get('PAYFAST_MERCHANT_KEY') ?? ''
-    const passphrase = Deno.env.get('PAYFAST_PASSPHRASE') ?? ''
-    const sandbox = Deno.env.get('PAYFAST_SANDBOX') === '1'
-    if (!merchantId || !merchantKey) return json({ configured: false })
+    const { merchantId, merchantKey, passphrase, sandbox } = payfastEnv()
     // PayFast rejects unsigned subscription requests — yearly auto-renew
     // needs the passphrase configured.
     if (!passphrase) {

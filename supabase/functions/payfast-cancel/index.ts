@@ -14,6 +14,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { md5 } from 'npm:js-md5@0.8.3'
 import { apiSignature } from '../_shared/payfast.ts'
+import { payfastEnv } from '../_shared/payfastEnv.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -62,10 +63,8 @@ Deno.serve(async (req) => {
     // still mark it cancelled locally so billing-state and app-state can't
     // disagree after the user asked to stop.
     if (membership.payfast_token) {
-      const merchantId = Deno.env.get('PAYFAST_MERCHANT_ID') ?? ''
-      const passphrase = Deno.env.get('PAYFAST_PASSPHRASE') ?? ''
-      if (!merchantId || !passphrase) return json({ error: 'merchant env missing' }, 503)
-      const sandbox = Deno.env.get('PAYFAST_SANDBOX') === '1'
+      const { merchantId, passphrase, sandbox } = payfastEnv()
+      if (!passphrase) return json({ error: 'merchant env missing' }, 503)
       const timestamp = new Date().toISOString().slice(0, 19)
       const headers = { 'merchant-id': merchantId, version: 'v1', timestamp }
       const signature = apiSignature(headers, passphrase, md5)

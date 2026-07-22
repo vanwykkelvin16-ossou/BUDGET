@@ -33,6 +33,7 @@ import {
   payfastHost,
   type PlanId,
 } from '../_shared/payfast.ts'
+import { payfastEnv } from '../_shared/payfastEnv.ts'
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('method not allowed', { status: 405 })
@@ -42,20 +43,19 @@ Deno.serve(async (req) => {
   const data: Record<string, string> = {}
   for (const [k, v] of params) data[k] = v
 
-  // 1) The notification must be addressed to OUR merchant account.
-  const ourMerchantId = Deno.env.get('PAYFAST_MERCHANT_ID') ?? ''
-  if (ourMerchantId && data.merchant_id !== ourMerchantId) {
+  // 1) The notification must be addressed to OUR merchant account
+  //    (live secrets, or the public sandbox merchant before any are set).
+  const { merchantId, passphrase, sandbox } = payfastEnv()
+  if (data.merchant_id !== merchantId) {
     return new Response('merchant mismatch', { status: 400 })
   }
 
   // 2) Signature check (parameter order as received, minus the signature).
-  const passphrase = Deno.env.get('PAYFAST_PASSPHRASE') ?? ''
   if (!itnSignatureValid(params, data.signature, passphrase, md5)) {
     return new Response('bad signature', { status: 400 })
   }
 
   // 3) Ask PayFast to confirm this notification really came from them.
-  const sandbox = Deno.env.get('PAYFAST_SANDBOX') === '1'
   const validate = await fetch(`https://${payfastHost(sandbox)}/eng/query/validate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
