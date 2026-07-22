@@ -51,7 +51,10 @@ Deno.serve(async (req) => {
   }
 
   // 2) Signature check (parameter order as received, minus the signature).
-  if (!itnSignatureValid(params, data.signature, passphrase, md5)) {
+  //    Only enforceable when we know the account's passphrase — the shared
+  //    sandbox fallback signs with a salt we don't have, so there the
+  //    postback to PayFast below is the authenticity check.
+  if (passphrase && !itnSignatureValid(params, data.signature, passphrase, md5)) {
     return new Response('bad signature', { status: 400 })
   }
 

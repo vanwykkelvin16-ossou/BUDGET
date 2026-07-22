@@ -11,6 +11,9 @@
  *     → PayFast's public sandbox merchant (from their developer docs),
  *       always on the sandbox host. Checkout and billing run for real
  *       against sandbox.payfast.co.za, but no actual money moves.
+ *       The shared account's salt passphrase is not publishable, so this
+ *       mode runs UNSIGNED — the sandbox accepts unsigned checkouts, and
+ *       ITN authenticity comes from the server postback to PayFast.
  *
  * Going live is therefore only:
  *   supabase secrets set PAYFAST_MERCHANT_ID=… PAYFAST_MERCHANT_KEY=… \
@@ -32,7 +35,6 @@ export interface PayfastEnv {
 // public by design, usable by anyone for integration testing.
 const SANDBOX_MERCHANT_ID = '10000100'
 const SANDBOX_MERCHANT_KEY = '46f0cd694581a'
-const SANDBOX_PASSPHRASE = 'jt7NOE43FZPn'
 
 export function payfastEnv(): PayfastEnv {
   const merchantId = Deno.env.get('PAYFAST_MERCHANT_ID') ?? ''
@@ -50,7 +52,7 @@ export function payfastEnv(): PayfastEnv {
   return {
     merchantId: SANDBOX_MERCHANT_ID,
     merchantKey: SANDBOX_MERCHANT_KEY,
-    passphrase: SANDBOX_PASSPHRASE,
+    passphrase: '',
     sandbox: true,
     live: false,
   }

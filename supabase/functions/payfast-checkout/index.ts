@@ -61,10 +61,11 @@ Deno.serve(async (req) => {
     } = await userClient.auth.getUser()
     if (!user) return json({ error: 'unauthorized' }, 401)
 
-    const { merchantId, merchantKey, passphrase, sandbox } = payfastEnv()
-    // PayFast rejects unsigned subscription requests — yearly auto-renew
-    // needs the passphrase configured.
-    if (!passphrase) {
+    const { merchantId, merchantKey, passphrase, sandbox, live } = payfastEnv()
+    // PayFast rejects unsigned LIVE subscription requests — yearly
+    // auto-renew needs the passphrase configured to go live. The shared
+    // sandbox fallback runs unsigned (its salt passphrase is not public).
+    if (live && !passphrase) {
       return json({ error: 'yearly auto-renew needs PAYFAST_PASSPHRASE configured' }, 503)
     }
 
@@ -110,7 +111,7 @@ Deno.serve(async (req) => {
       userId: user.id,
       referralDiscount,
     })
-    fields.signature = checkoutSignature(fields, passphrase, md5)
+    if (passphrase) fields.signature = checkoutSignature(fields, passphrase, md5)
 
     return json({
       configured: true,

@@ -62,9 +62,11 @@ Deno.serve(async (req) => {
     // (e.g. a membership from before tokens were stored, or test mode) we
     // still mark it cancelled locally so billing-state and app-state can't
     // disagree after the user asked to stop.
-    if (membership.payfast_token) {
-      const { merchantId, passphrase, sandbox } = payfastEnv()
-      if (!passphrase) return json({ error: 'merchant env missing' }, 503)
+    const { merchantId, passphrase, sandbox, live } = payfastEnv()
+    if (live && !passphrase) return json({ error: 'merchant env missing' }, 503)
+    // The API call needs a signature; the shared sandbox fallback has no
+    // known passphrase, so there we just mark the membership cancelled.
+    if (membership.payfast_token && passphrase) {
       const timestamp = new Date().toISOString().slice(0, 19)
       const headers = { 'merchant-id': merchantId, version: 'v1', timestamp }
       const signature = apiSignature(headers, passphrase, md5)
