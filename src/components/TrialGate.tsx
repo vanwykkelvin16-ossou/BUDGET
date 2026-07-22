@@ -62,7 +62,7 @@ export function TrialGate() {
                 Free preview
               </p>
               <p className="text-xs font-bold text-ink-soft leading-tight truncate">
-                Play around — sign-up comes after
+                No sign-up needed yet
               </p>
             </div>
             <button
