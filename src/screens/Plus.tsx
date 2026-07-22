@@ -46,8 +46,9 @@ const PERKS: string[] = [
   'Every new feature for the next 12 months',
 ]
 
-export function Plus() {
+export function Plus({ locked = false }: { locked?: boolean }) {
   const profile = useAppStore((s) => s.data.profile)
+  const refreshPlus = useAppStore((s) => s.refreshPlus)
   const [membership, setMembership] = useState<Membership | null>(loadMembership)
   const [busy, setBusy] = useState(false)
   const [params] = useSearchParams()
@@ -88,24 +89,36 @@ export function Plus() {
   useEffect(() => {
     const supabase = getSupabaseClient()
     if (!supabase) return
-    void (async () => {
+    let stopped = false
+
+    async function pullMembership(): Promise<boolean> {
+      if (!supabase) return false
       const { data: auth } = await supabase.auth.getUser()
-      if (!auth.user) return
+      if (!auth.user) return false
       const { data } = await supabase
         .from('memberships')
         .select('paid_until, payment_ref, amount_cents, activated_at')
         .eq('user_id', auth.user.id)
         .maybeSingle()
-      if (data?.paid_until) {
-        const server: Membership = clampToOneYear({
-          paidUntil: data.paid_until as string,
-          paymentRef: (data.payment_ref as string) ?? 'payfast',
-          amountCents: (data.amount_cents as number) ?? PLUS_PRICE_CENTS,
-          activatedAt: (data.activated_at as string) ?? '',
-        })
-        saveMembership(server)
+      if (!data?.paid_until) return false
+      const server: Membership = clampToOneYear({
+        paidUntil: data.paid_until as string,
+        paymentRef: (data.payment_ref as string) ?? 'payfast',
+        amountCents: (data.amount_cents as number) ?? PLUS_PRICE_CENTS,
+        activatedAt: (data.activated_at as string) ?? '',
+      })
+      saveMembership(server)
+      if (!stopped) {
         setMembership(server)
+        refreshPlus()
       }
+      return membershipStatus(server) === 'active'
+    }
+
+    void (async () => {
+      const { data: auth } = await supabase.auth.getUser()
+      if (!auth.user) return
+      let active = await pullMembership()
       // Share links must use the account's code, and a signed-up friend
       // unlocks the R50 — both server truths.
       const { data: me } = await supabase
@@ -113,7 +126,7 @@ export function Plus() {
         .select('referral_code')
         .eq('id', auth.user.id)
         .maybeSingle()
-      if (me?.referral_code) {
+      if (me?.referral_code && !stopped) {
         adoptServerReferralCode(me.referral_code as string)
         setRefCode(me.referral_code as string)
       }
@@ -121,12 +134,23 @@ export function Plus() {
         .from('referrals')
         .select('referred_user_id', { count: 'exact', head: true })
         .eq('referrer_user_id', auth.user.id)
-      if ((count ?? 0) > 0) {
+      if ((count ?? 0) > 0 && !stopped) {
         saveRewardUnlocked(true)
         setReward(true)
       }
+      // Back from PayFast: the ITN can land a beat after the redirect —
+      // poll briefly so the year activates without a manual refresh.
+      for (let i = 0; i < 24 && justPaid && !active && !stopped; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 5000))
+        if (stopped) break
+        active = await pullMembership()
+      }
     })()
-  }, [justPaid])
+
+    return () => {
+      stopped = true
+    }
+  }, [justPaid, refreshPlus])
 
   async function pay() {
     if (busy) return
@@ -138,23 +162,38 @@ export function Plus() {
       email: profile?.email || undefined,
       name: profile?.displayName || undefined,
     })
-    if (result !== 'redirected') setMembership(result)
+    if (result !== 'redirected') {
+      setMembership(result)
+      // Lift the members-only lock the moment the year activates.
+      refreshPlus()
+    }
     setBusy(false)
   }
 
   return (
     <Screen withTabBar={false}>
       <header className="flex items-center gap-3 mb-4">
-        <Link
-          to="/profile"
-          className="w-10 h-10 rounded-2xl bg-card border border-edge border-b-4 border-b-edge-strong
-                     font-display font-extrabold flex items-center justify-center"
-          aria-label="Back"
-        >
-          ←
-        </Link>
+        {!locked && (
+          <Link
+            to="/profile"
+            className="w-10 h-10 rounded-2xl bg-card border border-edge border-b-4 border-b-edge-strong
+                       font-display font-extrabold flex items-center justify-center"
+            aria-label="Back"
+          >
+            ←
+          </Link>
+        )}
         <h1 className="font-display font-extrabold text-2xl">PennyPlay Plus</h1>
       </header>
+
+      {locked && status !== 'active' && (
+        <div
+          className="mb-4 px-4 py-3 rounded-2xl border border-lime/40 bg-lime/10
+                     text-sm font-bold text-ink"
+        >
+          ✓ You're signed up! One last step — a year of Plus unlocks the full app.
+        </div>
+      )}
 
       {/* Offer / member card */}
       <div

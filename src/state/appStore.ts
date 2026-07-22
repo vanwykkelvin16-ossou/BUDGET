@@ -23,9 +23,12 @@ import type {
 } from '../lib/data/types'
 import { emptyAppData } from '../lib/data/types'
 import type { DataStore } from '../lib/data/store'
+import { LocalStore } from '../lib/data/store'
 import { getDataStore } from '../lib/data'
 import { DEFAULT_CATEGORIES, makeDefaultProfile } from '../lib/data/defaults'
 import { buildDemoData } from '../lib/data/seedDemo'
+import { loadMembership, membershipStatus } from '../lib/membership'
+import { clearTrialData, expireTrial, TRIAL_DATA_KEY, trialState } from '../lib/trial'
 import { uid } from '../lib/id'
 import { addDays, diffDays, todaySAST, weekBounds } from '../lib/dates'
 import {
@@ -63,11 +66,18 @@ interface AppState {
   loaded: boolean
   /** Supabase mode only: configured but no session yet. */
   needsAuth: boolean
+  /** First-time visitor exploring the free 45-second guest preview. */
+  guestTrial: boolean
+  /** An active PennyPlay Plus year on this device/account. */
+  plusActive: boolean
   /** SAST day the in-memory state was last computed for. */
   currentDay: string
   init: () => Promise<void>
   reload: () => Promise<void>
-  startDemo: () => Promise<void>
+  /** The 45s preview ran out (or the guest opted out) — on to sign-up. */
+  endGuestTrial: () => void
+  /** Re-read membership state (after a payment lands). */
+  refreshPlus: () => void
   createProfile: (params: {
     displayName: string
     surname: string
@@ -117,7 +127,9 @@ interface AppState {
   resetAll: () => Promise<void>
 }
 
-const store: DataStore = getDataStore()
+// Mutable: the guest preview swaps in a sandboxed LocalStore so demo data
+// never touches the real data key (or a Supabase sync queue).
+let store: DataStore = getDataStore()
 
 const nowISO = () => new Date().toISOString()
 
@@ -360,42 +372,76 @@ export const useAppStore = create<AppState>((set, get) => {
     set({ data: reconcile(synced, today) })
   }
 
+  /** Guest preview: park the app in a seeded sandbox — no sign-up needed. */
+  async function startGuestTrial() {
+    store = new LocalStore(TRIAL_DATA_KEY)
+    const resumed = await store.load()
+    const base = resumed?.profile ? resumed : buildDemoData()
+    const data = runHousekeeping(base, todaySAST(), nowISO())
+    set({ loaded: true, needsAuth: false, guestTrial: true, data })
+    const synced = await store.persist(data)
+    set({ data: reconcile(synced, todaySAST()) })
+  }
+
   return {
     data: emptyAppData(),
     loaded: false,
     needsAuth: false,
+    guestTrial: false,
+    plusActive: membershipStatus(loadMembership()) === 'active',
     currentDay: todaySAST(),
 
     init: async () => {
       if (get().loaded) return
+      store = getDataStore()
+      const plusActive = membershipStatus(loadMembership()) === 'active'
       const stored = await store.load()
       if (!stored?.profile) {
-        // Supabase mode: no session at all → the auth screen; a session
-        // without an onboarded profile → onboarding.
-        if (store.kind === 'supabase' && !(await store.userId?.())) {
-          set({ loaded: true, needsAuth: true, data: emptyAppData() })
+        const signedIn = store.kind === 'supabase' && Boolean(await store.userId?.())
+        // Brand-new visitor (no account, no profile): a free 45-second
+        // look around the app before any sign-up is asked for.
+        if (!signedIn && trialState() !== 'expired') {
+          set({ plusActive })
+          await startGuestTrial()
           return
         }
-        set({ loaded: true, needsAuth: false, data: stored ?? emptyAppData() })
+        // Supabase mode with no session → the sign-up screen. A session
+        // without an onboarded profile falls through (Plus → onboarding).
+        if (store.kind === 'supabase' && !signedIn) {
+          set({ loaded: true, needsAuth: true, guestTrial: false, plusActive, data: emptyAppData() })
+          return
+        }
+        set({ loaded: true, needsAuth: false, guestTrial: false, plusActive, data: stored ?? emptyAppData() })
         return
       }
       const data = runHousekeeping(stored, todaySAST(), nowISO())
       setSoundEnabled(data.profile?.soundEnabled ?? true)
-      set({ loaded: true, needsAuth: false, data })
+      set({ loaded: true, needsAuth: false, guestTrial: false, plusActive, data })
       const synced = await store.persist(data)
       set({ data: reconcile(synced, todaySAST()) })
     },
 
     reload: async () => {
-      set({ loaded: false, needsAuth: false, data: emptyAppData() })
+      set({ loaded: false, needsAuth: false, guestTrial: false, data: emptyAppData() })
       await get().init()
     },
 
-    startDemo: async () => {
-      const data = runHousekeeping(buildDemoData(), todaySAST(), nowISO())
-      set({ loaded: true, data })
-      const synced = await store.persist(data)
-      set({ data: synced })
+    endGuestTrial: () => {
+      expireTrial()
+      clearTrialData()
+      store = getDataStore()
+      set({
+        guestTrial: false,
+        loaded: true,
+        // Supabase mode → the sign-up screen; local mode → onboarding
+        // (which is the sign-up when no server is wired).
+        needsAuth: store.kind === 'supabase',
+        data: emptyAppData(),
+      })
+    },
+
+    refreshPlus: () => {
+      set({ plusActive: membershipStatus(loadMembership()) === 'active' })
     },
 
     createProfile: async (params) => {
@@ -916,8 +962,19 @@ export const useAppStore = create<AppState>((set, get) => {
 
     resetAll: async () => {
       await store.clear()
+      if (get().guestTrial) {
+        // Resetting inside the guest preview spends it — sign-up is next.
+        expireTrial()
+        store = getDataStore()
+      }
       useJuiceStore.getState().clear()
-      set({ data: emptyAppData(), loaded: true, needsAuth: store.kind === 'supabase' })
+      set({
+        data: emptyAppData(),
+        loaded: true,
+        guestTrial: false,
+        needsAuth: store.kind === 'supabase',
+        plusActive: membershipStatus(loadMembership()) === 'active',
+      })
     },
   }
 })

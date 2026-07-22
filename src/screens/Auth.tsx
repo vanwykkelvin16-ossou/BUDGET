@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { useAppStore } from '../state/appStore'
 import { getSupabaseClient } from '../lib/supabaseClient'
 import { referredBy } from '../lib/referral'
+import { trialState } from '../lib/trial'
 import { Screen } from '../components/layout/Screen'
 import { Button3D } from '../components/ui/Button3D'
 import { Card } from '../components/ui/Card'
@@ -14,7 +15,9 @@ import { Randy } from '../components/ui/Randy'
 
 export function Auth() {
   const reload = useAppStore((s) => s.reload)
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  // Arriving from the spent 45-second preview? Lead with sign-up.
+  const trialOver = trialState() === 'expired'
+  const [mode, setMode] = useState<'signin' | 'signup'>(trialOver ? 'signup' : 'signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -82,6 +85,15 @@ export function Auth() {
         <h1 className="font-display font-extrabold text-3xl text-gradient-violet">PennyPlay</h1>
         <p className="text-ink-soft text-sm">Your money, but make it a game.</p>
       </div>
+
+      {trialOver && (
+        <div
+          className="mb-4 px-4 py-3 rounded-2xl border border-gold/40 bg-gold/10
+                     text-sm font-bold text-ink text-center"
+        >
+          ⏰ Your free look around is over — create your account to keep going.
+        </div>
+      )}
 
       <Card className="flex flex-col gap-3">
         <div className="flex rounded-2xl bg-bg-deep border border-edge p-1 gap-1">

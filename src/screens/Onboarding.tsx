@@ -14,6 +14,7 @@ import { useAmountEntry } from '../components/ui/useAmountEntry'
 import { Randy, RandyIcon } from '../components/ui/Randy'
 import { adjustSplit, allocateIncome, DEFAULT_SPLITS } from '../lib/engine/allocate'
 import { isSupabaseConfigured, getSupabaseClient } from '../lib/supabaseClient'
+import { trialState } from '../lib/trial'
 import type { Bucket, BucketSplits } from '../lib/data/types'
 import { formatRands } from '../lib/money'
 
@@ -84,8 +85,9 @@ function SignupField({
 }
 
 export function Onboarding() {
-  const startDemo = useAppStore((s) => s.startDemo)
   const createProfile = useAppStore((s) => s.createProfile)
+  // Local mode: onboarding is the sign-up that follows the 45s preview.
+  const trialOver = trialState() === 'expired'
 
   const [step, setStep] = useState<Step>('welcome')
   const [name, setName] = useState('')
@@ -166,20 +168,24 @@ export function Onboarding() {
                   PennyPlay
                 </h1>
                 <p className="text-ink-soft mt-3 max-w-[30ch]">
-                  Hey! I'm <b className="text-gold">Randy</b>. Let's make your money fun —
-                  safe-to-spend daily numbers, streaks, quests and real savings. 🇿🇦
+                  {trialOver ? (
+                    <>
+                      Your free look around is over! Sign up with{' '}
+                      <b className="text-gold">Randy</b> to keep playing — it takes less than a
+                      minute. 🇿🇦
+                    </>
+                  ) : (
+                    <>
+                      Hey! I'm <b className="text-gold">Randy</b>. Let's make your money fun —
+                      safe-to-spend daily numbers, streaks, quests and real savings. 🇿🇦
+                    </>
+                  )}
                 </p>
               </div>
               <div className="w-full flex flex-col gap-3 mt-4">
                 <Button3D size="lg" full onClick={() => setStep('name')}>
-                  Set up in 60 seconds
+                  {trialOver ? 'Sign up to continue' : 'Set up in 60 seconds'}
                 </Button3D>
-                {/* Demo data stays on-device, so it's a local-mode feature. */}
-                {!isSupabaseConfigured() && (
-                  <Button3D variant="ghost" full onClick={() => void startDemo()}>
-                    👀 Try demo mode first
-                  </Button3D>
-                )}
               </div>
             </div>
           )}
