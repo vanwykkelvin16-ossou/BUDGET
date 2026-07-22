@@ -9,6 +9,8 @@
  * app is connected to accounts.
  */
 
+import { getSupabaseClient } from './supabaseClient'
+
 export const REFERRAL_DISCOUNT_CENTS = 5_000 // R50 off…
 export const FIRST_YEAR_PRICE_CENTS = 15_000 // …makes the first year R150
 
@@ -91,6 +93,30 @@ export function saveRewardUnlocked(unlocked: boolean): void {
 export function rewardUnlocked(): boolean {
   try {
     return localStorage.getItem(ELIGIBLE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Is the R50 unlocked *right now*? Checks the local flag first, then asks
+ * the server whether a friend has signed up with my code (and remembers a
+ * yes). The popup polls this while the user waits for their friend.
+ */
+export async function refreshRewardUnlocked(): Promise<boolean> {
+  if (rewardUnlocked()) return true
+  const supabase = getSupabaseClient()
+  if (!supabase) return false
+  try {
+    const { data: auth } = await supabase.auth.getUser()
+    if (!auth.user) return false
+    const { count } = await supabase
+      .from('referrals')
+      .select('referred_user_id', { count: 'exact', head: true })
+      .eq('referrer_user_id', auth.user.id)
+    const unlocked = (count ?? 0) > 0
+    if (unlocked) saveRewardUnlocked(true)
+    return unlocked
   } catch {
     return false
   }

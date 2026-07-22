@@ -144,9 +144,16 @@ export function Plus() {
   async function startCheckout() {
     if (busy) return
     setBusy(true)
+    // Price is decided at the moment of payment: the reward may have
+    // unlocked while the referral popup was open and waiting.
+    const unlockedNow = rewardUnlocked()
     const result = await payForYear({
-      priceCents,
-      referralDiscount: reward && isFirstPayment,
+      priceCents: plusPriceCents({
+        fullPriceCents: PLUS_PRICE_CENTS,
+        unlocked: unlockedNow,
+        isFirstPayment,
+      }),
+      referralDiscount: unlockedNow && isFirstPayment,
       current: membership,
       email: profile?.email || undefined,
       name: profile?.displayName || undefined,
@@ -358,7 +365,8 @@ export function Plus() {
         fullPriceCents={PLUS_PRICE_CENTS}
         onClose={() => setOfferOpen(false)}
         onShared={() => setShared(true)}
-        onSkip={() => {
+        onUnlocked={() => setReward(true)}
+        onProceed={() => {
           setOfferOpen(false)
           void startCheckout()
         }}

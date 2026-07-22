@@ -41,6 +41,7 @@ export function PlusGate() {
   const [blocked, setBlocked] = useState(false)
   const [busy, setBusy] = useState(false)
   const [offerOpen, setOfferOpen] = useState(false)
+  const [reward, setReward] = useState(rewardUnlocked)
 
   useEffect(() => {
     if (!profile || profile.isDemo) return
@@ -60,7 +61,6 @@ export function PlusGate() {
 
   if (!profile) return null
 
-  const reward = rewardUnlocked()
   const current: Membership | null = loadMembership()
   const priceCents = plusPriceCents({
     fullPriceCents: PLUS_PRICE_CENTS,
@@ -81,9 +81,16 @@ export function PlusGate() {
   async function startCheckout() {
     if (busy) return
     setBusy(true)
+    // Price is decided at the moment of payment: the reward may have
+    // unlocked while the referral popup was open and waiting.
+    const unlockedNow = rewardUnlocked()
     const result = await payForYear({
-      priceCents,
-      referralDiscount: reward && current === null,
+      priceCents: plusPriceCents({
+        fullPriceCents: PLUS_PRICE_CENTS,
+        unlocked: unlockedNow,
+        isFirstPayment: current === null,
+      }),
+      referralDiscount: unlockedNow && current === null,
       current,
       email: profile?.email || undefined,
       name: profile?.displayName || undefined,
@@ -155,7 +162,8 @@ export function PlusGate() {
             code={myReferralCode()}
             fullPriceCents={PLUS_PRICE_CENTS}
             onClose={() => setOfferOpen(false)}
-            onSkip={() => {
+            onUnlocked={() => setReward(true)}
+            onProceed={() => {
               setOfferOpen(false)
               void startCheckout()
             }}
