@@ -47,10 +47,14 @@ All money maths lives in `src/lib/engine/` as pure functions with unit tests (`n
 src/lib/engine/         cycle, allocation, safe-to-spend, rollover, recurring, insights
 src/lib/gamification/   xp, levels, streaks, quests, badges
 src/lib/data/           types, adapters (local + Supabase), demo seed
+src/lib/plans.ts        Plus pricing catalog (tiers, features, pros/cons)
+src/lib/membership.ts   Plus membership model + local persistence
+src/lib/plusServer.ts   server sync, payment history, checkout + cancel calls
 src/state/              zustand stores (app data + juice queue)
-src/components/         UI kit (Button3D, rings, number pad, Randy…) + JuiceHost
-src/screens/            onboarding, dashboard, add, quests, goals, insights, profile…
-supabase/               migrations (schema + RLS + triggers), award-xp edge function
+src/components/         UI kit (Button3D, rings, number pad, Randy…) + JuiceHost + PlusGate
+src/screens/            onboarding, dashboard, add, quests, goals, insights, profile, plus…
+supabase/               migrations (schema + RLS + triggers), edge functions
+supabase/functions/     award-xp, payfast-checkout, payfast-itn, payfast-cancel + _shared
 ```
 
 ## Wiring a real Supabase backend (optional)
@@ -62,7 +66,13 @@ The repo is **code-ready** for Supabase — schema, RLS and server-side XP are a
    supabase link --project-ref <your-ref>
    supabase db push
    ```
-2. Deploy the XP edge function: `supabase functions deploy award-xp`
+2. Deploy the edge functions:
+   ```bash
+   supabase functions deploy award-xp
+   supabase functions deploy payfast-checkout
+   supabase functions deploy payfast-itn --no-verify-jwt   # PayFast posts here without a JWT
+   supabase functions deploy payfast-cancel
+   ```
 3. Copy `.env.example` → `.env` and fill in `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`
 4. (Optional) enable the Google provider in Authentication → Providers for one-tap sign-in
 
@@ -71,6 +81,42 @@ Security model:
 - **RLS on every table**, scoped to `auth.uid()`; quest/badge catalogs are read-only to clients.
 - **XP can't be gamed from the client**: `xp_events` has no client insert policy. XP is written only by `security definer` DB triggers (expense/contribution) and the `award-xp` edge function, which re-verifies day-close awards, no-spend days and quest claims server-side. Every award is idempotent via `(user_id, ref_id)`.
 - New signups get a profile + default categories via an `auth.users` trigger.
+
+## PennyPlay Plus — payments via PayFast
+
+One paid plan behind a 45-second free look: **PennyPlay Plus** at
+**R200/year**, auto-renewing via a PayFast yearly subscription. Cancel
+anytime — access runs to the end of the year already paid for. The `/plus`
+screen is the pricing page — features, honest pros/cons, comparison
+matrix, payment history and plan management. Full flow (all server-verified):
+
+1. **Checkout** — the client asks the `payfast-checkout` edge function for a
+   signed checkout; the plan price, referral discount and signature are all
+   decided server-side, then the browser POSTs the fields to PayFast as a
+   yearly subscription (`frequency=6`, cycles until cancelled).
+2. **Confirmation** — PayFast posts an ITN to `payfast-itn`, which verifies
+   merchant id, signature, a validation postback to PayFast and the amount
+   against the plan's server-side price, records the payment in the
+   `payments` ledger (idempotently) and extends `memberships.paid_until`
+   by 365 days (capped at one year ahead). Yearly renewals hit the same path.
+3. **Activation** — the return page polls the membership row until the ITN
+   lands; the 45-second gate also re-checks the server before and while
+   blocking, so payments made on any device unlock everywhere.
+4. **Failures** — failed charges are recorded and surfaced on `/plus`; they
+   never remove paid-for access.
+5. **Cancellation** — `payfast-cancel` stops the yearly auto-renew via the
+   PayFast API and marks the membership cancelled; access runs to `paid_until`.
+6. **Access control** — memberships/payments have **no client-write
+   policies**; only the ITN edge function (service role) can grant access.
+   For signed-in users the server row always beats local state.
+
+Configure merchant credentials as **edge function secrets** (see
+`.env.example`): `PAYFAST_MERCHANT_ID`, `PAYFAST_MERCHANT_KEY`,
+`PAYFAST_PASSPHRASE` (**required** for yearly auto-renew) and
+`PAYFAST_SANDBOX=1` while testing against
+[sandbox.payfast.co.za](https://sandbox.payfast.co.za). Without credentials
+the whole flow runs in clearly-labelled on-device test mode so it can be
+exercised end to end.
 
 ## Phase 2 (designed, stubbed in Profile → Coming soon)
 
