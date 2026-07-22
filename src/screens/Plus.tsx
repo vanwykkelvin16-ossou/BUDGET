@@ -29,6 +29,7 @@ import {
   rewardUnlocked,
   saveRewardUnlocked,
   shareApp,
+  shouldOfferReferralBeforePay,
 } from '../lib/referral'
 import { formatDateLong, todaySAST } from '../lib/dates'
 import { formatZAR } from '../lib/money'
@@ -36,6 +37,7 @@ import { Screen } from '../components/layout/Screen'
 import { Card } from '../components/ui/Card'
 import { Button3D } from '../components/ui/Button3D'
 import { Randy } from '../components/ui/Randy'
+import { ReferralOfferPopup } from '../components/ReferralOfferPopup'
 
 const PERKS: string[] = [
   'Fun money that always matches your real cash',
@@ -64,6 +66,7 @@ export function Plus() {
   const [shared, setShared] = useState(hasShared)
   const [reward, setReward] = useState(rewardUnlocked)
   const [shareNote, setShareNote] = useState<string | null>(null)
+  const [offerOpen, setOfferOpen] = useState(false)
   const isFirstPayment = membership === null
   const priceCents = plusPriceCents({
     fullPriceCents: PLUS_PRICE_CENTS,
@@ -128,7 +131,17 @@ export function Plus() {
     })()
   }, [justPaid])
 
-  async function pay() {
+  /** Tapping Pay at the full R200 first opens the "save R50" popup. */
+  function pay() {
+    if (busy) return
+    if (shouldOfferReferralBeforePay({ unlocked: reward, isFirstPayment })) {
+      setOfferOpen(true)
+      return
+    }
+    void startCheckout()
+  }
+
+  async function startCheckout() {
     if (busy) return
     setBusy(true)
     const result = await payForYear({
@@ -250,7 +263,7 @@ export function Plus() {
         </p>
       ) : (
         <>
-          <Button3D full size="lg" variant="gold" disabled={busy} onClick={() => void pay()}>
+          <Button3D full size="lg" variant="gold" disabled={busy} onClick={pay}>
             {status === 'expired'
               ? `Renew — ${formatZAR(priceCents, { showCents: false })} for a year`
               : `Pay ${formatZAR(priceCents, { showCents: false })} for a year`}
@@ -338,6 +351,18 @@ export function Plus() {
         </div>
       </Card>
 
+      {/* Refer-a-friend nudge before the full-price R200 checkout */}
+      <ReferralOfferPopup
+        open={offerOpen}
+        code={refCode}
+        fullPriceCents={PLUS_PRICE_CENTS}
+        onClose={() => setOfferOpen(false)}
+        onShared={() => setShared(true)}
+        onSkip={() => {
+          setOfferOpen(false)
+          void startCheckout()
+        }}
+      />
     </Screen>
   )
 }

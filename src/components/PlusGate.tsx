@@ -14,11 +14,17 @@ import {
   PLUS_PRICE_CENTS,
   type Membership,
 } from '../lib/membership'
-import { plusPriceCents, rewardUnlocked } from '../lib/referral'
+import {
+  myReferralCode,
+  plusPriceCents,
+  rewardUnlocked,
+  shouldOfferReferralBeforePay,
+} from '../lib/referral'
 import { payForYear } from '../lib/plusCheckout'
 import { formatZAR } from '../lib/money'
 import { Button3D } from './ui/Button3D'
 import { Randy } from './ui/Randy'
+import { ReferralOfferPopup } from './ReferralOfferPopup'
 
 const GATE_SECONDS_KEY = 'pennyplay:gate-seconds' // test override
 const DEFAULT_GATE_SECONDS = 45
@@ -34,6 +40,7 @@ export function PlusGate() {
   const profile = useAppStore((s) => s.data.profile)
   const [blocked, setBlocked] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [offerOpen, setOfferOpen] = useState(false)
 
   useEffect(() => {
     if (!profile || profile.isDemo) return
@@ -61,7 +68,17 @@ export function PlusGate() {
     isFirstPayment: current === null,
   })
 
-  async function subscribe() {
+  /** Tapping Unlock at the full R200 first opens the "save R50" popup. */
+  function subscribe() {
+    if (busy) return
+    if (shouldOfferReferralBeforePay({ unlocked: reward, isFirstPayment: current === null })) {
+      setOfferOpen(true)
+      return
+    }
+    void startCheckout()
+  }
+
+  async function startCheckout() {
     if (busy) return
     setBusy(true)
     const result = await payForYear({
@@ -123,7 +140,7 @@ export function PlusGate() {
             </div>
 
             <div className="w-full mt-6">
-              <Button3D full size="lg" variant="gold" disabled={busy} onClick={() => void subscribe()}>
+              <Button3D full size="lg" variant="gold" disabled={busy} onClick={subscribe}>
                 Unlock a year — {formatZAR(priceCents, { showCents: false })}
               </Button3D>
             </div>
@@ -131,6 +148,18 @@ export function PlusGate() {
               Billed yearly · no auto-renewal · your data stays yours
             </p>
           </div>
+
+          {/* Refer-a-friend nudge before the full-price R200 checkout */}
+          <ReferralOfferPopup
+            open={offerOpen}
+            code={myReferralCode()}
+            fullPriceCents={PLUS_PRICE_CENTS}
+            onClose={() => setOfferOpen(false)}
+            onSkip={() => {
+              setOfferOpen(false)
+              void startCheckout()
+            }}
+          />
         </motion.div>
       )}
     </AnimatePresence>

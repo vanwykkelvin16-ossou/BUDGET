@@ -96,6 +96,19 @@ export function rewardUnlocked(): boolean {
   }
 }
 
+/**
+ * Should the "refer a friend, get R50 off" popup interrupt checkout?
+ * Only when the user is about to pay the FULL R200 on their FIRST
+ * payment — i.e. the R50 is still on the table. Never for renewals
+ * (the discount is first-payment-only) and never once it's unlocked.
+ */
+export function shouldOfferReferralBeforePay(params: {
+  unlocked: boolean
+  isFirstPayment: boolean
+}): boolean {
+  return params.isFirstPayment && !params.unlocked
+}
+
 /** First payment with an unlocked reward → R150; everything else → R200. */
 export function plusPriceCents(params: {
   fullPriceCents: number
