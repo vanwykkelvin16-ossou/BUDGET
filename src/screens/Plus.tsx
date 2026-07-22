@@ -187,7 +187,7 @@ export function Plus() {
     lastPayment && lastPayment.status === 'failed' && !confirming && status !== 'active'
 
   return (
-    <Screen withTabBar={false}>
+    <Screen>
       <header className="flex items-center gap-3 mb-4">
         <Link
           to="/profile"
@@ -525,7 +525,7 @@ export function Plus() {
       )}
 
       {/* ----- Fine print (Apple-style grouped list) ----- */}
-      <section className="mb-8">
+      <section className="mb-4 pb-2">
         <p className="px-1 mb-2 text-[11px] font-semibold tracking-tight text-ink-faint">
           The honest fine print
         </p>
