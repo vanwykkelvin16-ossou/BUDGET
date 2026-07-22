@@ -87,7 +87,7 @@ export function ReferralOfferPopup({
                   type="button"
                   onClick={onClose}
                   aria-label="Close"
-                  className="absolute right-3 top-3 w-8 h-8 rounded-full bg-bg-deep border border-edge
+                  className="absolute right-3 top-3 z-10 w-8 h-8 rounded-full bg-bg-deep border border-edge
                              text-ink-faint font-extrabold flex items-center justify-center"
                 >
                   ✕
