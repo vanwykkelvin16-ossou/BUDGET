@@ -653,23 +653,45 @@ function TierCard({
         ))}
       </div>
 
-      {/* Pros & cons */}
-      <div className="grid grid-cols-2 gap-2 mt-3">
-        <div className="rounded-2xl bg-bg-deep border border-edge/60 p-2.5">
-          <p className="text-[9px] font-extrabold uppercase tracking-wider text-lime mb-1">Pros</p>
-          {tier.pros.map((p) => (
-            <p key={p} className="text-[10.5px] text-ink-soft font-semibold leading-snug py-0.5">
-              <span className="text-lime">+</span> {p}
-            </p>
-          ))}
+      {/* Pros & cons — stacked, detached, clean */}
+      <div className="mt-4 flex flex-col gap-3">
+        <div className="rounded-2xl border border-lime/20 bg-lime/[0.06] px-3.5 py-3">
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-lime mb-2.5">
+            Pros
+          </p>
+          <ul className="flex flex-col gap-2">
+            {tier.pros.map((p) => (
+              <li key={p} className="flex items-start gap-2.5">
+                <span
+                  className="mt-0.5 w-4 h-4 shrink-0 rounded-full bg-lime/20 text-lime
+                             flex items-center justify-center text-[10px] font-extrabold leading-none"
+                  aria-hidden
+                >
+                  +
+                </span>
+                <span className="text-[12px] text-ink-soft font-semibold leading-snug">{p}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-        <div className="rounded-2xl bg-bg-deep border border-edge/60 p-2.5">
-          <p className="text-[9px] font-extrabold uppercase tracking-wider text-coral mb-1">Cons</p>
-          {tier.cons.map((c) => (
-            <p key={c} className="text-[10.5px] text-ink-soft font-semibold leading-snug py-0.5">
-              <span className="text-coral">−</span> {c}
-            </p>
-          ))}
+        <div className="rounded-2xl border border-coral/20 bg-coral/[0.06] px-3.5 py-3">
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-coral mb-2.5">
+            Cons
+          </p>
+          <ul className="flex flex-col gap-2">
+            {tier.cons.map((c) => (
+              <li key={c} className="flex items-start gap-2.5">
+                <span
+                  className="mt-0.5 w-4 h-4 shrink-0 rounded-full bg-coral/20 text-coral
+                             flex items-center justify-center text-[10px] font-extrabold leading-none"
+                  aria-hidden
+                >
+                  −
+                </span>
+                <span className="text-[12px] text-ink-soft font-semibold leading-snug">{c}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
 
