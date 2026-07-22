@@ -11,9 +11,16 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 const DEFAULT_URL = 'https://ewvaykmaoxcumkmrjvkm.supabase.co'
 const DEFAULT_PUBLISHABLE_KEY = 'sb_publishable_DzHfC_5FDQqaVTeml0_BLA_X5Zm-jag'
 
-const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || DEFAULT_URL
-const anonKey =
-  (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || DEFAULT_PUBLISHABLE_KEY
+// A misconfigured override (empty, whitespace, missing protocol) must never
+// take the whole app down — fall back to the known-good production project.
+const envUrl = ((import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? '').trim()
+const envKey = ((import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? '').trim()
+
+// The URL and key belong together — a broken override of either means
+// both defaults are used.
+const overrideValid = /^https?:\/\/.+/.test(envUrl) && envKey.length > 0
+const url = overrideValid ? envUrl : DEFAULT_URL
+const anonKey = overrideValid ? envKey : DEFAULT_PUBLISHABLE_KEY
 
 export function isSupabaseConfigured(): boolean {
   return Boolean(url && anonKey)
