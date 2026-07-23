@@ -151,9 +151,9 @@ export function Profile() {
                   }`}
                 >
                   {plusStatus === 'active'
-                    ? 'active'
+                    ? 'auto-renew'
                     : plusStatus === 'expired'
-                      ? 'renew'
+                      ? 'resubscribe'
                       : 'R200 / year'}
                 </span>
               </span>
@@ -326,6 +326,10 @@ export function Profile() {
       <p className="text-center text-[10px] text-ink-faint font-bold mt-4">
         PennyPlay · your money stays on this device{' '}
         {profile.isDemo ? '· demo data ' : ''}·{' '}
+        <Link to="/terms" className="underline">
+          Terms
+        </Link>
+        {' · '}
         <Link to="/privacy" className="underline">
           Privacy policy
         </Link>

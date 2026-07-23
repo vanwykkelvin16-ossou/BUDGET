@@ -21,7 +21,11 @@ import {
 import { requestServerCheckout, submitCheckoutForm } from './plusServer'
 import { todaySAST } from './dates'
 
-export type CheckoutResult = 'redirected' | Membership | { error: string }
+export type CheckoutResult =
+  | 'redirected'
+  | Membership
+  | { error: string }
+  | { redirected: true; warning?: string }
 
 export async function payForPlan(params: {
   plan?: PlanId
@@ -36,9 +40,19 @@ export async function payForPlan(params: {
   // 1) Server-signed checkout (required for the yearly auto-renew
   //    subscription — PayFast only accepts signed subscription requests).
   const server = await requestServerCheckout(plan)
+  if (server && typeof server === 'object' && 'error' in server) return server
   if (server !== 'unavailable' && server !== 'not-configured') {
+    // Persist a one-shot warning so Plus can show it if PayFast bounces
+    // the buyer back before navigation completes (sandbox fallback).
+    if (server.warning) {
+      try {
+        sessionStorage.setItem('pennyplay:payfast-warning', server.warning)
+      } catch {
+        /* ignore */
+      }
+    }
     submitCheckoutForm(server)
-    return 'redirected'
+    return { redirected: true, warning: server.warning }
   }
 
   // 2) Legacy client-side checkout — unsigned yearly URL. Prefer the

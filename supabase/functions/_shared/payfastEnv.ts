@@ -8,10 +8,9 @@
  *   2. public.payfast_config row (service-role only; set via SQL)
  *   3. PayFast's public sandbox merchant (unsigned sandbox checkout)
  *
- * Going live is therefore either:
- *   supabase secrets set PAYFAST_MERCHANT_ID=… PAYFAST_MERCHANT_KEY=… \
- *     PAYFAST_PASSPHRASE=…
- * or a single row in payfast_config (sandbox=false).
+ * When a configured LIVE merchant is not yet able to receive payments
+ * (FICA pending), checkout falls back to the public sandbox so the app
+ * keeps working; ITN accepts notifications from either merchant.
  */
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -29,8 +28,18 @@ export interface PayfastEnv {
 
 // The shared sandbox merchant from https://developers.payfast.co.za —
 // public by design, usable by anyone for integration testing.
-const SANDBOX_MERCHANT_ID = '10000100'
-const SANDBOX_MERCHANT_KEY = '46f0cd694581a'
+export const SANDBOX_MERCHANT_ID = '10000100'
+export const SANDBOX_MERCHANT_KEY = '46f0cd694581a'
+
+export function sandboxMerchant(): PayfastEnv {
+  return {
+    merchantId: SANDBOX_MERCHANT_ID,
+    merchantKey: SANDBOX_MERCHANT_KEY,
+    passphrase: '',
+    sandbox: true,
+    live: false,
+  }
+}
 
 function fromEnv(): PayfastEnv | null {
   const merchantId = Deno.env.get('PAYFAST_MERCHANT_ID') ?? ''
@@ -43,16 +52,6 @@ function fromEnv(): PayfastEnv | null {
     passphrase: Deno.env.get('PAYFAST_PASSPHRASE') ?? '',
     sandbox,
     live: !sandbox,
-  }
-}
-
-function sandboxFallback(): PayfastEnv {
-  return {
-    merchantId: SANDBOX_MERCHANT_ID,
-    merchantKey: SANDBOX_MERCHANT_KEY,
-    passphrase: '',
-    sandbox: true,
-    live: false,
   }
 }
 
@@ -88,5 +87,36 @@ export async function payfastEnv(): Promise<PayfastEnv> {
     /* fall through to sandbox */
   }
 
-  return sandboxFallback()
+  return sandboxMerchant()
+}
+
+/**
+ * Probe PayFast with a throwaway payment id. Returns null when the
+ * merchant can receive payments, or a short reason string when not.
+ * A 302/303 to the payment page (or 200) counts as ready.
+ */
+export async function probeMerchantReady(
+  host: string,
+  fields: Record<string, string>,
+): Promise<string | null> {
+  try {
+    const res = await fetch(`https://${host}/eng/process`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(fields),
+      redirect: 'manual',
+    })
+    if (res.status === 200 || res.status === 302 || res.status === 303) return null
+    const text = await res.text()
+    if (/not able to receive payments/i.test(text) || /unable to receive payments/i.test(text)) {
+      return 'merchant_pending_verification'
+    }
+    if (/signature/i.test(text) && /match|invalid|generated/i.test(text)) {
+      return 'bad_signature'
+    }
+    if (/passphrase/i.test(text)) return 'bad_passphrase'
+    return `payfast_http_${res.status}`
+  } catch (err) {
+    return `payfast_probe_failed:${String(err)}`
+  }
 }

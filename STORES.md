@@ -8,6 +8,7 @@ app's owner. Follow the two tracks below.
 
 - Store-grade web manifest (`id`, `lang`, `categories`, screenshots, maskable icon)
 - Privacy policy at `https://budget-omega-ochre.vercel.app/privacy` (works without an account)
+- Terms & conditions at `https://budget-omega-ochre.vercel.app/terms` (works without an account)
 - Digital Asset Links placeholder at `public/.well-known/assetlinks.json`
 - Capacitor iOS project in `ios/` (`app.pennyplay.budget`)
 - Store assets in `store/`: 1024×1024 App Store icon, Apple 6.7″ screenshots
@@ -41,6 +42,7 @@ app's owner. Follow the two tracks below.
    - Screenshots: use `store/screenshots/play/`
    - App icon: `public/icon-512.png`
    - Privacy policy URL: `https://budget-omega-ochre.vercel.app/privacy`
+   - Terms URL: `https://budget-omega-ochre.vercel.app/terms`
    - **Data safety form**: select *"No data collected"* — all data stays on
      the device (truthful as long as Supabase sync stays unconfigured).
 6. Complete the content-rating questionnaire (finance app, no user-generated
@@ -74,6 +76,8 @@ package is a trusted wrapper around the live URL.
    - Screenshots: use `store/screenshots/apple/` (6.7″ display set).
    - Privacy: *"Data Not Collected"* nutrition label; policy URL
      `https://budget-omega-ochre.vercel.app/privacy`.
+   - Terms of Use URL (if asked):
+     `https://budget-omega-ochre.vercel.app/terms`.
    - Test through **TestFlight** first, then *Submit for Review*.
 5. **Review tip (guideline 4.2, minimum functionality):** Apple rejects thin
    website wrappers. PennyPlay ships bundled inside the binary (not a URL
