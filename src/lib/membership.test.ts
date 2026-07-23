@@ -12,7 +12,14 @@ import {
 const TODAY = '2026-07-13'
 
 function paidUpTo(paidUntil: string): Membership {
-  return { paidUntil, paymentRef: 'ref', amountCents: PLUS_PRICE_CENTS, activatedAt: '' }
+  return {
+    paidUntil,
+    paymentRef: 'ref',
+    amountCents: PLUS_PRICE_CENTS,
+    activatedAt: '',
+    plan: 'yearly',
+    billing: 'active',
+  }
 }
 
 describe('membership status', () => {
@@ -40,10 +47,17 @@ describe('membership status', () => {
     expect(clampToOneYear(paidUpTo('2026-09-01'), TODAY).paidUntil).toBe('2026-09-01') // untouched
     expect(daysLeft(clampToOneYear(paidUpTo('2050-07-07'), TODAY), TODAY)).toBe(365)
   })
+
+  it('a cancelled plan keeps access until its paid-up day', () => {
+    const cancelled: Membership = { ...paidUpTo('2026-08-01'), billing: 'cancelled' }
+    expect(membershipStatus(cancelled, TODAY)).toBe('active')
+    expect(daysLeft(cancelled, TODAY)).toBe(19)
+    expect(membershipStatus(cancelled, '2026-08-02')).toBe('expired')
+  })
 })
 
 describe('payfast checkout url', () => {
-  it('builds a yearly auto-renew subscription with return/cancel/ITN context', () => {
+  it('builds a complete R200 checkout with return/cancel/ITN context', () => {
     const url = new URL(
       payfastCheckoutUrl({
         config: { merchantId: '10000100', merchantKey: 'abc', sandbox: false },
@@ -58,24 +72,8 @@ describe('payfast checkout url', () => {
     expect(url.searchParams.get('merchant_id')).toBe('10000100')
     expect(url.searchParams.get('return_url')).toContain('/plus?paid=1')
     expect(url.searchParams.get('custom_str1')).toBe('user-1')
-    expect(url.searchParams.get('subscription_type')).toBe('1')
-    expect(url.searchParams.get('frequency')).toBe('6')
-    expect(url.searchParams.get('cycles')).toBe('0')
-    expect(url.searchParams.get('recurring_amount')).toBe('200.00')
-  })
-
-  it('keeps renewals at full price when the first year is discounted', () => {
-    const url = new URL(
-      payfastCheckoutUrl({
-        config: { merchantId: 'x', merchantKey: 'y', sandbox: true },
-        origin: 'http://localhost',
-        amountCents: 15_000,
-        referralDiscount: true,
-      }),
-    )
-    expect(url.searchParams.get('amount')).toBe('150.00')
-    expect(url.searchParams.get('recurring_amount')).toBe('200.00')
-    expect(url.searchParams.get('custom_str2')).toBe('ref50')
+    expect(url.searchParams.get('custom_str3')).toBe('yearly')
+    expect(url.searchParams.get('item_name')).toMatch(/yearly/i)
   })
 
   it('uses the sandbox host when flagged', () => {

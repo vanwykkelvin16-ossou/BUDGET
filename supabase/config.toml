@@ -30,6 +30,14 @@ secret = ""
 [functions.award-xp]
 verify_jwt = true
 
-# PayFast posts ITNs without a user JWT — must accept anonymous calls.
+# Builds the signed PayFast checkout for the signed-in user.
+[functions.payfast-checkout]
+verify_jwt = true
+
+# PayFast posts payment notifications here — no user JWT on that request.
 [functions.payfast-itn]
 verify_jwt = false
+
+# Cancels the signed-in user's monthly subscription at PayFast.
+[functions.payfast-cancel]
+verify_jwt = true

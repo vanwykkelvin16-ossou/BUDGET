@@ -28,3 +28,4 @@ supabase/.temp/
 supabase/.branches/
 .vercel
 .env*
+e2e-screenshots/

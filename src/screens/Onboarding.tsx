@@ -1,6 +1,7 @@
 /**
- * First-run onboarding: salary → pay date → split sliders → done, in under
- * a minute. Demo mode is one tap away on the first step.
+ * First-run onboarding — the ONE sign-up path. Profile + account are created
+ * here (no separate Auth screen before it). Returning users tap “Sign in”
+ * on the welcome step; everyone else sets up in ~60 seconds.
  */
 
 import { useEffect, useState } from 'react'
@@ -14,10 +15,12 @@ import { useAmountEntry } from '../components/ui/useAmountEntry'
 import { Randy, RandyIcon } from '../components/ui/Randy'
 import { adjustSplit, allocateIncome, DEFAULT_SPLITS } from '../lib/engine/allocate'
 import { isSupabaseConfigured, getSupabaseClient } from '../lib/supabaseClient'
+import { referredBy } from '../lib/referral'
+import { trialState } from '../lib/trial'
 import type { Bucket, BucketSplits } from '../lib/data/types'
 import { formatRands } from '../lib/money'
 
-type Step = 'welcome' | 'name' | 'salary' | 'payDate' | 'splits' | 'done'
+type Step = 'welcome' | 'signin' | 'name' | 'salary' | 'payDate' | 'splits' | 'done'
 
 const STEP_ORDER: Step[] = ['welcome', 'name', 'salary', 'payDate', 'splits', 'done']
 /** Steps that show progress dots (everything between welcome and done). */
@@ -39,6 +42,7 @@ function SignupField({
   prefix,
   hint,
   autoFocus = false,
+  maxLength = 40,
 }: {
   label: string
   value: string
@@ -49,6 +53,7 @@ function SignupField({
   prefix?: string
   hint?: string
   autoFocus?: boolean
+  maxLength?: number
 }) {
   const touched = value.length > 0
   return (
@@ -72,7 +77,7 @@ function SignupField({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           type={type}
-          maxLength={40}
+          maxLength={maxLength}
           autoFocus={autoFocus}
           aria-label={label}
           className="w-full px-4 py-3 bg-transparent outline-none font-semibold
@@ -83,9 +88,19 @@ function SignupField({
   )
 }
 
+function authErrorMessage(message: string): string {
+  const msg = message.toLowerCase()
+  if (msg.includes('rate limit')) {
+    return 'Too many emails sent — wait about an hour, or turn off “Confirm email” in Supabase Auth settings and try again.'
+  }
+  return message
+}
+
 export function Onboarding() {
-  const startDemo = useAppStore((s) => s.startDemo)
   const createProfile = useAppStore((s) => s.createProfile)
+  const reload = useAppStore((s) => s.reload)
+  const needsAccount = isSupabaseConfigured()
+  const trialOver = trialState() === 'expired'
 
   const [step, setStep] = useState<Step>('welcome')
   const [name, setName] = useState('')
@@ -93,61 +108,138 @@ export function Onboarding() {
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  const [password, setPassword] = useState('')
   const [payDate, setPayDate] = useState(25)
   const [splits, setSplits] = useState<BucketSplits>(DEFAULT_SPLITS)
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const salary = useAmountEntry()
 
-  // Pre-fill email from the auth account when Supabase is wired.
+  // Pre-fill from an existing session (returning user mid-setup).
   useEffect(() => {
-    if (!isSupabaseConfigured()) return
+    if (!needsAccount) return
     const client = getSupabaseClient()
     if (!client) return
     void client.auth.getSession().then(({ data }) => {
-      const authEmail = data.session?.user.email
-      if (authEmail) setEmail((current) => current || authEmail.toLowerCase())
+      const user = data.session?.user
+      if (!user) return
+      const meta = user.user_metadata ?? {}
+      if (user.email) setEmail((current) => current || user.email!.toLowerCase())
+      if (typeof meta.display_name === 'string' && meta.display_name) {
+        setName((current) => current || meta.display_name)
+      }
+      if (typeof meta.surname === 'string' && meta.surname) {
+        setSurname((current) => current || meta.surname)
+      }
+      if (typeof meta.username === 'string' && meta.username) {
+        setUsername((current) => current || meta.username)
+      }
+      if (typeof meta.phone === 'string' && meta.phone) {
+        setPhone((current) => current || meta.phone)
+      }
     })
-  }, [])
+  }, [needsAccount])
 
   const stepIndex = STEP_ORDER.indexOf(step)
   const preview = allocateIncome(salary.amountCents, splits)
 
-  // Sign-up validation — every field is required.
   const nameOk = name.trim().length >= 2
   const surnameOk = surname.trim().length >= 2
   const usernameOk = /^[a-zA-Z0-9_.]{3,20}$/.test(username.trim())
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())
   const phoneOk = phone.replace(/\D/g, '').length >= 9
-  const signupOk = nameOk && surnameOk && usernameOk && emailOk && phoneOk
+  const passwordOk = !needsAccount || password.length >= 6
+  const signupOk = nameOk && surnameOk && usernameOk && emailOk && phoneOk && passwordOk
+
+  /** Create the Supabase account once, then continue into salary setup. */
+  async function continueFromName() {
+    if (!signupOk || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      const client = getSupabaseClient()
+      if (client) {
+        const { data: session } = await client.auth.getSession()
+        if (!session.session) {
+          const { error: authError } = await client.auth.signUp({
+            email: email.trim().toLowerCase(),
+            password,
+            options: {
+              data: {
+                display_name: name.trim(),
+                surname: surname.trim(),
+                username: username.trim().toLowerCase(),
+                phone: phone.trim(),
+                referred_by: referredBy() ?? '',
+              },
+            },
+          })
+          if (authError) {
+            setError(authErrorMessage(authError.message))
+            return
+          }
+        }
+      }
+      setStep('salary')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function signIn() {
+    if (busy || !emailOk || password.length < 6) return
+    const client = getSupabaseClient()
+    if (!client) return
+    setBusy(true)
+    setError(null)
+    const { error: authError } = await client.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    })
+    setBusy(false)
+    if (authError) {
+      setError(authErrorMessage(authError.message))
+      return
+    }
+    await reload()
+  }
 
   async function finish() {
     if (busy) return
     setBusy(true)
-    await createProfile({
-      displayName: name.trim() || 'You',
-      surname: surname.trim(),
-      username: username.trim().toLowerCase(),
-      email: email.trim().toLowerCase(),
-      phone: phone.trim(),
-      salaryCents: salary.amountCents,
-      payDate,
-      splits,
-    })
+    setError(null)
+    try {
+      await createProfile({
+        displayName: name.trim() || 'You',
+        surname: surname.trim(),
+        username: username.trim().toLowerCase(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim(),
+        salaryCents: salary.amountCents,
+        payDate,
+        splits,
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+      setBusy(false)
+    }
   }
 
   return (
     <Screen withTabBar={false} className="flex flex-col">
-      {/* progress dots */}
-      <div className="flex justify-center gap-2 mb-6 mt-2">
-        {STEP_ORDER.slice(1, 1 + DOT_STEPS).map((s, i) => (
-          <span
-            key={s}
-            className={`h-2 rounded-full transition-all duration-300 ${
-              i < Math.min(Math.max(stepIndex, 1), DOT_STEPS) ? 'w-6 bg-accent' : 'w-2 bg-edge-strong'
-            }`}
-          />
-        ))}
-      </div>
+      {/* progress dots — hidden on welcome / sign-in */}
+      {step !== 'welcome' && step !== 'signin' && (
+        <div className="flex justify-center gap-2 mb-6 mt-2">
+          {STEP_ORDER.slice(1, 1 + DOT_STEPS).map((s, i) => (
+            <span
+              key={s}
+              className={`h-2 rounded-full transition-all duration-300 ${
+                i < Math.min(Math.max(stepIndex, 1), DOT_STEPS) ? 'w-6 bg-accent' : 'w-2 bg-edge-strong'
+              }`}
+            />
+          ))}
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         <motion.div
@@ -166,18 +258,85 @@ export function Onboarding() {
                   PennyPlay
                 </h1>
                 <p className="text-ink-soft mt-3 max-w-[30ch]">
-                  Hey! I'm <b className="text-gold">Randy</b>. Let's make your money fun —
-                  safe-to-spend daily numbers, streaks, quests and real savings. 🇿🇦
+                  {trialOver ? (
+                    <>
+                      Your free look around is over! Sign up with{' '}
+                      <b className="text-gold">Randy</b> to keep playing — it takes less than a
+                      minute. 🇿🇦
+                    </>
+                  ) : (
+                    <>
+                      Hey! I'm <b className="text-gold">Randy</b>. Let's make your money fun —
+                      safe-to-spend daily numbers, streaks, quests and real savings. 🇿🇦
+                    </>
+                  )}
                 </p>
               </div>
               <div className="w-full flex flex-col gap-3 mt-4">
                 <Button3D size="lg" full onClick={() => setStep('name')}>
-                  Set up in 60 seconds
+                  {trialOver ? 'Sign up to continue' : 'Set up in 60 seconds'}
                 </Button3D>
-                <Button3D variant="ghost" full onClick={() => void startDemo()}>
-                  Try demo mode first
-                </Button3D>
+                {needsAccount && (
+                  <Button3D
+                    variant="ghost"
+                    full
+                    onClick={() => {
+                      setError(null)
+                      setStep('signin')
+                    }}
+                  >
+                    Already have an account? Sign in
+                  </Button3D>
+                )}
               </div>
+            </div>
+          )}
+
+          {step === 'signin' && (
+            <div className="flex-1 flex flex-col gap-3 justify-center">
+              <header className="text-center mb-2">
+                <Randy mood="happy" size={120} className="mx-auto" />
+                <h2 className="font-display font-extrabold text-2xl mt-2">Welcome back</h2>
+                <p className="text-ink-soft text-sm mt-1">Sign in with your email and password.</p>
+              </header>
+              <SignupField
+                label="Email"
+                value={email}
+                onChange={setEmail}
+                ok={emailOk}
+                placeholder="you@example.com"
+                type="email"
+                autoFocus
+              />
+              <SignupField
+                label="Password"
+                value={password}
+                onChange={setPassword}
+                ok={password.length >= 6}
+                placeholder="Password"
+                type="password"
+                hint="at least 6 characters"
+                maxLength={72}
+              />
+              {error && <p className="text-coral text-xs font-bold text-center">{error}</p>}
+              <Button3D
+                size="lg"
+                full
+                disabled={busy || !emailOk || password.length < 6}
+                onClick={() => void signIn()}
+              >
+                {busy ? 'Signing in…' : 'Sign in'}
+              </Button3D>
+              <Button3D
+                variant="ghost"
+                full
+                onClick={() => {
+                  setError(null)
+                  setStep('welcome')
+                }}
+              >
+                ← Back
+              </Button3D>
             </div>
           )}
 
@@ -236,6 +395,18 @@ export function Onboarding() {
                 type="tel"
                 hint="at least 9 digits"
               />
+              {needsAccount && (
+                <SignupField
+                  label="Password"
+                  value={password}
+                  onChange={setPassword}
+                  ok={passwordOk}
+                  placeholder="Choose a password"
+                  type="password"
+                  hint="at least 6 characters"
+                  maxLength={72}
+                />
+              )}
 
               {signupOk && (
                 <p className="text-center text-sm text-ink-soft animate-pop-in">
@@ -243,8 +414,14 @@ export function Onboarding() {
                   <RandyIcon size={18} className="inline" />
                 </p>
               )}
-              <Button3D size="lg" full disabled={!signupOk} onClick={() => setStep('salary')}>
-                That's me
+              {error && <p className="text-coral text-xs font-bold text-center">{error}</p>}
+              <Button3D
+                size="lg"
+                full
+                disabled={!signupOk || busy}
+                onClick={() => void continueFromName()}
+              >
+                {busy ? 'Creating account…' : "That's me"}
               </Button3D>
             </div>
           )}
@@ -297,7 +474,8 @@ export function Onboarding() {
                 ))}
               </div>
               <p className="text-center text-sm text-ink-faint">
-                Salary lands on the <b className="text-ink">{payDate}th</b> — cycle runs {payDate}th → {payDate}th
+                Salary lands on the <b className="text-ink">{payDate}th</b> — cycle runs {payDate}th →{' '}
+                {payDate}th
               </p>
               <Button3D size="lg" full onClick={() => setStep('splits')}>
                 Next
@@ -360,8 +538,9 @@ export function Onboarding() {
                   {splits.need}/{splits.want}/{splits.saving}. I'll do the maths — you live your life.
                 </p>
               </div>
+              {error && <p className="text-coral text-xs font-bold">{error}</p>}
               <Button3D size="lg" variant="lime" full onClick={() => void finish()} disabled={busy}>
-                🚀 Let's go
+                {busy ? 'Saving…' : "🚀 Let's go"}
               </Button3D>
             </div>
           )}

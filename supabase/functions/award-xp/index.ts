@@ -43,7 +43,7 @@ function allocateIncome(totalCents: number, splits: Splits): Record<Bucket, numb
 Deno.serve(async (req) => {
   const cors = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, content-type',
+    'Access-Control-Allow-Headers': 'authorization, content-type, x-client-info, apikey',
   }
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 

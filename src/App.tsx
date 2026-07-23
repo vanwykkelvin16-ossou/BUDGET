@@ -10,12 +10,10 @@ import { captureIncomingRef } from './lib/referral'
 captureIncomingRef()
 import { TabBar } from './components/layout/TabBar'
 import { JuiceHost } from './components/juice/JuiceHost'
-import { PlusGate } from './components/PlusGate'
+import { TrialGate } from './components/TrialGate'
 import { Randy } from './components/ui/Randy'
-import { hydrateMembershipFromServer } from './lib/membershipSync'
-import { syncReferralRewards } from './lib/referral'
+import { isSupabaseConfigured } from './lib/supabaseClient'
 
-import { Auth } from './screens/Auth'
 import { Onboarding } from './screens/Onboarding'
 import { Dashboard } from './screens/Dashboard'
 import { AddTransaction } from './screens/AddTransaction'
@@ -29,12 +27,12 @@ import { TrophyCabinet } from './screens/TrophyCabinet'
 import { SeasonRecap } from './screens/SeasonRecap'
 import { Settings } from './screens/Settings'
 import { Privacy } from './screens/Privacy'
-import { Terms } from './screens/Terms'
 import { Plus } from './screens/Plus'
 
 export function App() {
   const loaded = useAppStore((s) => s.loaded)
-  const needsAuth = useAppStore((s) => s.needsAuth)
+  const guestTrial = useAppStore((s) => s.guestTrial)
+  const plusActive = useAppStore((s) => s.plusActive)
   const data = useAppStore((s) => s.data)
   const profile = data.profile
   const init = useAppStore((s) => s.init)
@@ -43,14 +41,6 @@ export function App() {
   useEffect(() => {
     void init()
   }, [init])
-
-  // After auth/onboarding: mirror Plus membership + referral unlocks from
-  // Supabase so the 35s gate and /plus screen see the server truth.
-  useEffect(() => {
-    if (!loaded || !profile || profile.isDemo) return
-    void hydrateMembershipFromServer()
-    void syncReferralRewards()
-  }, [loaded, profile])
 
   // Every navigation lands at the top of the new screen — no inherited
   // scroll position from the page you came from.
@@ -105,31 +95,30 @@ export function App() {
     )
   }
 
-  // Store reviewers open policy URLs cold — no account or profile required.
-  const legalRoutes = (
-    <>
-      <Route path="/privacy" element={<Privacy />} />
-      <Route path="/terms" element={<Terms />} />
-    </>
-  )
+  // Past the free preview, the app is members-only. The subscribe screen
+  // IS the app until a Plus year is active. Sign-up lives in Onboarding.
+  const plusLocked =
+    !guestTrial &&
+    !plusActive &&
+    (isSupabaseConfigured() ? Boolean(profile) : Boolean(profile && !profile.isDemo))
 
-  if (needsAuth) {
+  if (plusLocked) {
     return (
       <>
-        <Routes>
-          {legalRoutes}
-          <Route path="*" element={<Auth />} />
-        </Routes>
+        <Plus locked />
         <JuiceHost />
       </>
     )
   }
 
+  // One sign-up path only: Onboarding. Returning users sign in from the
+  // welcome screen there — no separate Auth gate before it.
   if (!profile) {
     return (
       <>
         <Routes>
-          {legalRoutes}
+          {/* Store reviewers open the policy URL cold — no profile needed. */}
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="*" element={<Onboarding />} />
         </Routes>
         <JuiceHost />
@@ -155,12 +144,11 @@ export function App() {
         <Route path="/recap" element={<SeasonRecap />} />
         <Route path="/plus" element={<Plus />} />
         <Route path="/privacy" element={<Privacy />} />
-        <Route path="/terms" element={<Terms />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {!fullScreen && <TabBar />}
       <JuiceHost />
-      <PlusGate />
+      {guestTrial && <TrialGate />}
     </>
   )
 }
