@@ -50,8 +50,9 @@ import { Randy } from '../components/ui/Randy'
 const CONFIRM_POLL_MS = 4_000
 const CONFIRM_TIMEOUT_MS = 90_000
 
-export function Plus() {
+export function Plus({ locked = false }: { locked?: boolean }) {
   const profile = useAppStore((s) => s.data.profile)
+  const refreshPlus = useAppStore((s) => s.refreshPlus)
   const [membership, setMembership] = useState<Membership | null>(loadMembership)
   const [payments, setPayments] = useState<PaymentRecord[]>([])
   const [busy, setBusy] = useState(false)
@@ -128,6 +129,7 @@ export function Plus() {
       if (membershipStatus(server, todaySAST()) === 'active') {
         setMembership(server)
         setPayments(await fetchPayments())
+        refreshPlus()
         setConfirming(false)
         window.clearInterval(timer)
       } else if (Date.now() > pollUntil.current) {
@@ -171,7 +173,11 @@ export function Plus() {
     })
     if (result === 'redirected') return // browser is leaving for PayFast
     if (typeof result === 'object' && 'error' in result) setCheckoutError(result.error)
-    else setMembership(result)
+    else {
+      setMembership(result)
+      // Lift the members-only lock the moment the year activates.
+      refreshPlus()
+    }
     setBusy(false)
   }
 
@@ -209,16 +215,27 @@ export function Plus() {
   return (
     <Screen withTabBar>
       <header className="flex items-center gap-3 mb-4">
-        <Link
-          to="/profile"
-          className="w-10 h-10 rounded-2xl bg-card border border-edge border-b-4 border-b-edge-strong
-                     font-display font-extrabold flex items-center justify-center"
-          aria-label="Back"
-        >
-          ←
-        </Link>
+        {!locked && (
+          <Link
+            to="/profile"
+            className="w-10 h-10 rounded-2xl bg-card border border-edge border-b-4 border-b-edge-strong
+                       font-display font-extrabold flex items-center justify-center"
+            aria-label="Back"
+          >
+            ←
+          </Link>
+        )}
         <h1 className="font-display font-extrabold text-2xl">PennyPlay Plus</h1>
       </header>
+
+      {locked && status !== 'active' && (
+        <div
+          className="mb-4 px-4 py-3 rounded-2xl border border-lime/40 bg-lime/10
+                     text-sm font-bold text-ink"
+        >
+          ✓ You're signed up! One last step — a year of Plus unlocks the full app.
+        </div>
+      )}
 
       {/* ----- Payment outcome banners ----- */}
       {confirming && (
