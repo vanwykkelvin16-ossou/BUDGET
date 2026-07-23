@@ -10,10 +10,10 @@ import { captureIncomingRef } from './lib/referral'
 captureIncomingRef()
 import { TabBar } from './components/layout/TabBar'
 import { JuiceHost } from './components/juice/JuiceHost'
-import { PlusGate } from './components/PlusGate'
+import { TrialGate } from './components/TrialGate'
 import { Randy } from './components/ui/Randy'
+import { isSupabaseConfigured } from './lib/supabaseClient'
 
-import { Auth } from './screens/Auth'
 import { Onboarding } from './screens/Onboarding'
 import { Dashboard } from './screens/Dashboard'
 import { AddTransaction } from './screens/AddTransaction'
@@ -31,7 +31,8 @@ import { Plus } from './screens/Plus'
 
 export function App() {
   const loaded = useAppStore((s) => s.loaded)
-  const needsAuth = useAppStore((s) => s.needsAuth)
+  const guestTrial = useAppStore((s) => s.guestTrial)
+  const plusActive = useAppStore((s) => s.plusActive)
   const data = useAppStore((s) => s.data)
   const profile = data.profile
   const init = useAppStore((s) => s.init)
@@ -94,10 +95,24 @@ export function App() {
     )
   }
 
-  if (needsAuth) {
-    return <Auth />
+  // Past the free preview, the app is members-only. The subscribe screen
+  // IS the app until a Plus year is active. Sign-up lives in Onboarding.
+  const plusLocked =
+    !guestTrial &&
+    !plusActive &&
+    (isSupabaseConfigured() ? Boolean(profile) : Boolean(profile && !profile.isDemo))
+
+  if (plusLocked) {
+    return (
+      <>
+        <Plus locked />
+        <JuiceHost />
+      </>
+    )
   }
 
+  // One sign-up path only: Onboarding. Returning users sign in from the
+  // welcome screen there — no separate Auth gate before it.
   if (!profile) {
     return (
       <>
@@ -133,7 +148,7 @@ export function App() {
       </Routes>
       {!fullScreen && <TabBar />}
       <JuiceHost />
-      <PlusGate />
+      {guestTrial && <TrialGate />}
     </>
   )
 }
