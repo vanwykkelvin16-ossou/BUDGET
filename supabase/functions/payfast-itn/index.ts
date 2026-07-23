@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
 
   // 1) The notification must be addressed to OUR merchant account
   //    (live secrets, or the public sandbox merchant before any are set).
-  const { merchantId, passphrase, sandbox } = payfastEnv()
+  const { merchantId, passphrase, sandbox } = await payfastEnv()
   if (data.merchant_id !== merchantId) {
     return new Response('merchant mismatch', { status: 400 })
   }
