@@ -57,6 +57,13 @@ export function Plus({ locked = false }: { locked?: boolean }) {
   const [payments, setPayments] = useState<PaymentRecord[]>([])
   const [busy, setBusy] = useState(false)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
+  const [payWarning, setPayWarning] = useState<string | null>(() => {
+    try {
+      return sessionStorage.getItem('pennyplay:payfast-warning')
+    } catch {
+      return null
+    }
+  })
   const [params] = useSearchParams()
   const justPaid = params.get('paid') === '1'
   const wasCancelled = params.get('cancelled') === '1'
@@ -171,7 +178,10 @@ export function Plus({ locked = false }: { locked?: boolean }) {
       email: profile?.email || undefined,
       name: profile?.displayName || undefined,
     })
-    if (result === 'redirected') return // browser is leaving for PayFast
+    if (result === 'redirected' || (typeof result === 'object' && 'redirected' in result)) {
+      if (typeof result === 'object' && result.warning) setPayWarning(result.warning)
+      return // browser is leaving for PayFast
+    }
     if (typeof result === 'object' && 'error' in result) setCheckoutError(result.error)
     else {
       setMembership(result)
@@ -282,6 +292,16 @@ export function Plus({ locked = false }: { locked?: boolean }) {
       {checkoutError && (
         <Card className="mb-4 !border-coral/40">
           <p className="text-xs text-coral font-bold">{checkoutError}</p>
+        </Card>
+      )}
+      {payWarning && (
+        <Card className="mb-4 !border-gold/40 bg-gold/10">
+          <p className="font-display font-extrabold text-sm text-gold">Sandbox payments</p>
+          <p className="text-xs text-ink-soft font-semibold mt-1">{payWarning}</p>
+          <p className="text-[11px] text-ink-faint font-bold mt-2">
+            PayFast dashboard → Account → Verification Documents. Once approved, live R200
+            charges start automatically — no app update needed.
+          </p>
         </Card>
       )}
 
