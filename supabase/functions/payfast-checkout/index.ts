@@ -6,20 +6,15 @@
  * same plan table.
  *
  * PennyPlay Plus is a yearly auto-renewing PayFast subscription (R200/year).
- * A passphrase is required — PayFast rejects unsigned subscription requests.
+ * A passphrase is required for LIVE subscriptions — PayFast rejects them
+ * unsigned. If the configured live merchant cannot receive payments yet
+ * (FICA pending), we automatically fall back to PayFast's public sandbox
+ * so checkout still works, and return `livePending: true` for the UI.
  *
  * POST JSON { plan: 'yearly', origin: string }
- *   → { configured: true, host, fields }  — client POSTs `fields` to
- *     https://{host}/eng/process as a form
- *
- * Merchant credentials come from payfastEnv(): live secrets when set,
- * PayFast's public sandbox merchant otherwise — so real sandbox checkout
- * works before any secrets exist.
+ *   → { configured: true, host, fields, sandbox?, livePending? }
  *
  * Deploy: supabase functions deploy payfast-checkout
- * Env:    PAYFAST_MERCHANT_ID, PAYFAST_MERCHANT_KEY,
- *         PAYFAST_PASSPHRASE (required for yearly auto-renew),
- *         PAYFAST_SANDBOX=1 to test live keys against the sandbox
  */
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -31,7 +26,11 @@ import {
   isPlanId,
   payfastHost,
 } from '../_shared/payfast.ts'
-import { payfastEnv } from '../_shared/payfastEnv.ts'
+import {
+  payfastEnv,
+  probeMerchantReady,
+  sandboxMerchant,
+} from '../_shared/payfastEnv.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -44,12 +43,14 @@ const json = (body: unknown, status = 200) =>
     headers: { ...cors, 'Content-Type': 'application/json' },
   })
 
+const LIVE_PENDING_WARNING =
+  'Your PayFast live account cannot receive payments yet (usually FICA still pending). Checkout is running in sandbox until Account → Verification Documents is approved.'
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405)
 
   try {
-    // Who is paying? Identify the caller from their JWT.
     const authHeader = req.headers.get('Authorization') ?? ''
     const userClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -61,11 +62,11 @@ Deno.serve(async (req) => {
     } = await userClient.auth.getUser()
     if (!user) return json({ error: 'unauthorized' }, 401)
 
-    const { merchantId, merchantKey, passphrase, sandbox, live } = await payfastEnv()
-    // PayFast rejects unsigned LIVE subscription requests — yearly
-    // auto-renew needs the passphrase configured to go live. The shared
-    // sandbox fallback runs unsigned (its salt passphrase is not public).
-    if (live && !passphrase) {
+    let merchant = await payfastEnv()
+    let livePending = false
+    let warning: string | undefined
+
+    if (merchant.live && !merchant.passphrase) {
       return json({ error: 'yearly auto-renew needs PAYFAST_PASSPHRASE configured' }, 503)
     }
 
@@ -75,8 +76,6 @@ Deno.serve(async (req) => {
     const origin = typeof body.origin === 'string' ? body.origin : ''
     if (!/^https?:\/\/[^\s/]+$/.test(origin)) return json({ error: 'bad origin' }, 400)
 
-    // Server truth for the price: the R50 friend reward applies to the
-    // first yearly payment only, and only with a signed-up referral.
     const db = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -97,26 +96,63 @@ Deno.serve(async (req) => {
       .eq('id', user.id)
       .maybeSingle()
 
-    const fields = buildCheckoutFields({
-      merchantId,
-      merchantKey,
-      returnUrl: `${origin}/plus?paid=1`,
-      cancelUrl: `${origin}/plus?cancelled=1`,
-      notifyUrl: `${Deno.env.get('SUPABASE_URL')}/functions/v1/payfast-itn`,
-      nameFirst: (profile?.display_name as string | undefined) || undefined,
-      emailAddress: (profile?.email as string | undefined) || user.email || undefined,
-      mPaymentId: crypto.randomUUID(),
-      plan,
-      amountCents,
-      userId: user.id,
-      referralDiscount,
-    })
-    if (passphrase) fields.signature = checkoutSignature(fields, passphrase, md5)
+    const notifyUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/payfast-itn`
+    const nameFirst = (profile?.display_name as string | undefined) || undefined
+    const emailAddress = (profile?.email as string | undefined) || user.email || undefined
+
+    function buildFields(m: typeof merchant, paymentId: string) {
+      const fields = buildCheckoutFields({
+        merchantId: m.merchantId,
+        merchantKey: m.merchantKey,
+        returnUrl: `${origin}/plus?paid=1`,
+        cancelUrl: `${origin}/plus?cancelled=1`,
+        notifyUrl,
+        nameFirst,
+        emailAddress,
+        mPaymentId: paymentId,
+        plan,
+        amountCents,
+        userId: user.id,
+        referralDiscount,
+      })
+      if (m.passphrase) fields.signature = checkoutSignature(fields, m.passphrase, md5)
+      return fields
+    }
+
+    // Live merchants that haven't finished FICA reject every checkout with
+    // "not able to receive payments". Probe once with a throwaway id, then
+    // fall back to the public sandbox so buyers aren't dumped on a 400 page.
+    if (merchant.live) {
+      const probe = buildFields(merchant, crypto.randomUUID())
+      const reason = await probeMerchantReady(payfastHost(false), probe)
+      if (reason === 'merchant_pending_verification') {
+        merchant = sandboxMerchant()
+        livePending = true
+        warning = LIVE_PENDING_WARNING
+      } else if (reason === 'bad_signature' || reason === 'bad_passphrase') {
+        return json(
+          {
+            error:
+              'PayFast rejected the live payment signature — check that PAYFAST_PASSPHRASE matches Settings → Security Passphrase exactly.',
+          },
+          503,
+        )
+      } else if (reason) {
+        // Unknown reject — still try sandbox so the product keeps working.
+        merchant = sandboxMerchant()
+        livePending = true
+        warning = `${LIVE_PENDING_WARNING} (probe: ${reason})`
+      }
+    }
+
+    const fields = buildFields(merchant, crypto.randomUUID())
 
     return json({
       configured: true,
-      host: payfastHost(sandbox),
-      sandbox,
+      host: payfastHost(merchant.sandbox),
+      sandbox: merchant.sandbox,
+      livePending,
+      warning,
       amountCents,
       fields,
     })

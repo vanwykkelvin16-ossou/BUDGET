@@ -33,7 +33,7 @@ import {
   payfastHost,
   type PlanId,
 } from '../_shared/payfast.ts'
-import { payfastEnv } from '../_shared/payfastEnv.ts'
+import { payfastEnv, SANDBOX_MERCHANT_ID } from '../_shared/payfastEnv.ts'
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('method not allowed', { status: 405 })
@@ -43,12 +43,17 @@ Deno.serve(async (req) => {
   const data: Record<string, string> = {}
   for (const [k, v] of params) data[k] = v
 
-  // 1) The notification must be addressed to OUR merchant account
-  //    (live secrets, or the public sandbox merchant before any are set).
-  const { merchantId, passphrase, sandbox } = await payfastEnv()
-  if (data.merchant_id !== merchantId) {
+  // 1) Accept ITNs for the configured merchant OR the public sandbox
+  //    merchant (checkout falls back to sandbox while a live account is
+  //    still pending FICA verification).
+  const env = await payfastEnv()
+  const fromSandbox = data.merchant_id === SANDBOX_MERCHANT_ID
+  const fromConfigured = data.merchant_id === env.merchantId
+  if (!fromSandbox && !fromConfigured) {
     return new Response('merchant mismatch', { status: 400 })
   }
+  const sandbox = fromSandbox || env.sandbox
+  const passphrase = fromSandbox ? '' : env.passphrase
 
   // 2) Signature check (parameter order as received, minus the signature).
   //    Only enforceable when we know the account's passphrase — the shared

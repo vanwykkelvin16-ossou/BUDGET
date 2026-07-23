@@ -107,6 +107,9 @@ export interface ServerCheckout {
   sandbox: boolean
   amountCents: number
   fields: Record<string, string>
+  /** Live merchant is configured but PayFast says it can't receive yet. */
+  livePending?: boolean
+  warning?: string
 }
 
 /**
@@ -115,10 +118,11 @@ export interface ServerCheckout {
  *   ServerCheckout      — POST fields to https://{host}/eng/process
  *   'not-configured'    — merchant env not set server-side (fall back)
  *   'unavailable'       — no Supabase / not signed in / function missing
+ *   { error }           — server returned an actionable error message
  */
 export async function requestServerCheckout(
   plan: PlanId,
-): Promise<ServerCheckout | 'not-configured' | 'unavailable'> {
+): Promise<ServerCheckout | 'not-configured' | 'unavailable' | { error: string }> {
   const supabase = getSupabaseClient()
   if (!supabase) return 'unavailable'
   try {
@@ -127,14 +131,17 @@ export async function requestServerCheckout(
     const { data, error } = await supabase.functions.invoke('payfast-checkout', {
       body: { plan, origin: window.location.origin },
     })
-    if (error || !data) return 'unavailable'
-    if (data.configured === false) return 'not-configured'
-    if (!data.fields || !data.host) return 'unavailable'
+    if (error && !data) return 'unavailable'
+    if (data?.error && typeof data.error === 'string') return { error: data.error }
+    if (data?.configured === false) return 'not-configured'
+    if (!data?.fields || !data?.host) return 'unavailable'
     return {
       host: data.host as string,
       sandbox: Boolean(data.sandbox),
       amountCents: (data.amountCents as number) ?? 0,
       fields: data.fields as Record<string, string>,
+      livePending: Boolean(data.livePending),
+      warning: typeof data.warning === 'string' ? data.warning : undefined,
     }
   } catch {
     return 'unavailable'
