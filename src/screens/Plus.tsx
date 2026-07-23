@@ -35,7 +35,9 @@ import {
   rewardUnlocked,
   saveRewardUnlocked,
   shareApp,
+  shouldOfferReferralBeforePay,
 } from '../lib/referral'
+import { ReferralOfferPopup } from '../components/ReferralOfferPopup'
 import { getSupabaseClient } from '../lib/supabaseClient'
 import { formatDateLong, todaySAST } from '../lib/dates'
 import { formatZAR } from '../lib/money'
@@ -76,6 +78,7 @@ export function Plus() {
   const [shared, setShared] = useState(hasShared)
   const [reward, setReward] = useState(rewardUnlocked)
   const [shareNote, setShareNote] = useState<string | null>(null)
+  const [offerOpen, setOfferOpen] = useState(false)
   const isFirstPayment = membership === null
   const priceCents = plusPriceCents({
     fullPriceCents: PLUS_PRICE_CENTS,
@@ -137,14 +140,31 @@ export function Plus() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [justPaid, connected])
 
-  async function pay() {
+  /** Tapping Pay at the full R200 first opens the "save R50" popup. */
+  function pay() {
+    if (busy) return
+    if (shouldOfferReferralBeforePay({ unlocked: reward, isFirstPayment })) {
+      setOfferOpen(true)
+      return
+    }
+    void startCheckout()
+  }
+
+  async function startCheckout() {
     if (busy) return
     setBusy(true)
     setCheckoutError(null)
+    // Price is decided at the moment of payment: the reward may have
+    // unlocked while the referral popup was open and waiting.
+    const unlockedNow = rewardUnlocked()
     const result = await payForPlan({
       plan: 'yearly',
-      priceCents,
-      referralDiscount: reward && isFirstPayment,
+      priceCents: plusPriceCents({
+        fullPriceCents: PLUS_PRICE_CENTS,
+        unlocked: unlockedNow,
+        isFirstPayment,
+      }),
+      referralDiscount: unlockedNow && isFirstPayment,
       current: membership,
       email: profile?.email || undefined,
       name: profile?.displayName || undefined,
@@ -579,6 +599,20 @@ export function Plus() {
           </Button3D>
         </div>
       </Sheet>
+
+      {/* Refer-a-friend nudge before the full-price R200 checkout */}
+      <ReferralOfferPopup
+        open={offerOpen}
+        code={refCode}
+        fullPriceCents={PLUS_PRICE_CENTS}
+        onClose={() => setOfferOpen(false)}
+        onShared={() => setShared(true)}
+        onUnlocked={() => setReward(true)}
+        onProceed={() => {
+          setOfferOpen(false)
+          void startCheckout()
+        }}
+      />
     </Screen>
   )
 }

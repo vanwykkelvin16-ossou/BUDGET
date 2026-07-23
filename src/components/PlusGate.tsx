@@ -22,12 +22,18 @@ import {
   PLUS_PRICE_CENTS,
   type Membership,
 } from '../lib/membership'
-import { plusPriceCents, rewardUnlocked } from '../lib/referral'
+import {
+  myReferralCode,
+  plusPriceCents,
+  rewardUnlocked,
+  shouldOfferReferralBeforePay,
+} from '../lib/referral'
 import { payForPlan } from '../lib/plusCheckout'
 import { syncMembershipFromServer } from '../lib/plusServer'
 import { formatZAR } from '../lib/money'
 import { Button3D } from './ui/Button3D'
 import { Randy } from './ui/Randy'
+import { ReferralOfferPopup } from './ReferralOfferPopup'
 
 const GATE_SECONDS_KEY = 'pennyplay:gate-seconds' // test override
 const DEFAULT_GATE_SECONDS = 45
@@ -46,6 +52,8 @@ export function PlusGate() {
   const [blocked, setBlocked] = useState(false)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
+  const [offerOpen, setOfferOpen] = useState(false)
+  const [reward, setReward] = useState(rewardUnlocked)
 
   // Arm the timer: server check first, then the grace period.
   useEffect(() => {
@@ -91,7 +99,6 @@ export function PlusGate() {
   // The pricing page holds the pay button — never wall it off.
   const onPlusPage = location.pathname === '/plus'
 
-  const reward = rewardUnlocked()
   const current: Membership | null = loadMembership()
   const priceCents = plusPriceCents({
     fullPriceCents: PLUS_PRICE_CENTS,
@@ -99,14 +106,31 @@ export function PlusGate() {
     isFirstPayment: current === null,
   })
 
-  async function subscribe() {
+  /** Tapping Unlock at the full R200 first opens the "save R50" popup. */
+  function subscribe() {
+    if (busy) return
+    if (shouldOfferReferralBeforePay({ unlocked: reward, isFirstPayment: current === null })) {
+      setOfferOpen(true)
+      return
+    }
+    void startCheckout()
+  }
+
+  async function startCheckout() {
     if (busy) return
     setBusy(true)
     setNote(null)
+    // Price is decided at the moment of payment: the reward may have
+    // unlocked while the referral popup was open and waiting.
+    const unlockedNow = rewardUnlocked()
     const result = await payForPlan({
       plan: 'yearly',
-      priceCents,
-      referralDiscount: reward && current === null,
+      priceCents: plusPriceCents({
+        fullPriceCents: PLUS_PRICE_CENTS,
+        unlocked: unlockedNow,
+        isFirstPayment: current === null,
+      }),
+      referralDiscount: unlockedNow && current === null,
       current,
       email: profile?.email || undefined,
       name: profile?.displayName || undefined,
@@ -161,7 +185,7 @@ export function PlusGate() {
             )}
 
             <div className="w-full mt-5">
-              <Button3D full size="lg" variant="gold" disabled={busy} onClick={() => void subscribe()}>
+              <Button3D full size="lg" variant="gold" disabled={busy} onClick={subscribe}>
                 {busy
                   ? 'Opening secure checkout…'
                   : `⭐ Join Plus — ${formatZAR(priceCents, { showCents: false })} / year`}
@@ -180,6 +204,19 @@ export function PlusGate() {
               yours
             </p>
           </div>
+
+          {/* Refer-a-friend nudge before the full-price R200 checkout */}
+          <ReferralOfferPopup
+            open={offerOpen}
+            code={myReferralCode()}
+            fullPriceCents={PLUS_PRICE_CENTS}
+            onClose={() => setOfferOpen(false)}
+            onUnlocked={() => setReward(true)}
+            onProceed={() => {
+              setOfferOpen(false)
+              void startCheckout()
+            }}
+          />
         </motion.div>
       )}
     </AnimatePresence>
