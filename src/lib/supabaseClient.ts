@@ -2,8 +2,7 @@
  * Supabase client. VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY override the
  * defaults (empty values are ignored); otherwise the app connects to the
  * production PennyPlay project. The publishable key is safe to ship in the
- * bundle — every table is guarded by row-level security, and payments are
- * only ever written by the PayFast ITN edge function (service role).
+ * bundle — every table is guarded by row-level security.
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'

@@ -6,6 +6,7 @@ import {
   daysInMonth,
   dayOfWeekMon,
   diffDays,
+  isAdult,
   isWeekend,
   isoWeekKey,
   monthKey,
@@ -86,5 +87,27 @@ describe('weeks', () => {
 describe('keys', () => {
   it('month keys', () => {
     expect(monthKey('2026-07-09')).toBe('2026-07')
+  })
+})
+
+describe('isAdult', () => {
+  const TODAY = '2026-07-13'
+
+  it('true on and after the 18th birthday', () => {
+    expect(isAdult('2008-07-13', TODAY)).toBe(true) // exactly 18 today
+    expect(isAdult('2008-07-12', TODAY)).toBe(true) // turned 18 yesterday
+    expect(isAdult('2000-01-01', TODAY)).toBe(true)
+  })
+
+  it('false the day before the 18th birthday, and for the future', () => {
+    expect(isAdult('2008-07-14', TODAY)).toBe(false) // turns 18 tomorrow
+    expect(isAdult('2010-01-01', TODAY)).toBe(false)
+    expect(isAdult('2026-08-01', TODAY)).toBe(false) // in the future
+  })
+
+  it('rejects garbage input', () => {
+    expect(isAdult('', TODAY)).toBe(false)
+    expect(isAdult('not-a-date', TODAY)).toBe(false)
+    expect(isAdult('2008-13-40', TODAY)).toBe(false)
   })
 })

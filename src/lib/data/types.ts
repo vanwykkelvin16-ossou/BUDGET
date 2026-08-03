@@ -31,6 +31,8 @@ export interface Profile {
   username: string
   email: string
   phone: string
+  /** ISO YYYY-MM-DD. */
+  dateOfBirth: string
   salaryCents: number
   /** Day of month the salary lands and the budget cycle starts (1–31). */
   payDate: number

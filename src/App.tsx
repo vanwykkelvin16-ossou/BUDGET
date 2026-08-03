@@ -3,16 +3,9 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAppStore } from './state/appStore'
 import { STORAGE_KEY } from './lib/data/store'
 import { runNotificationSweep } from './lib/notifications'
-import { captureIncomingRef } from './lib/referral'
-
-// A share link (?ref=CODE) may land on any route — remember whose it was
-// before the router strips the query.
-captureIncomingRef()
 import { TabBar } from './components/layout/TabBar'
 import { JuiceHost } from './components/juice/JuiceHost'
-import { TrialGate } from './components/TrialGate'
 import { Randy } from './components/ui/Randy'
-import { isSupabaseConfigured } from './lib/supabaseClient'
 
 import { Onboarding } from './screens/Onboarding'
 import { Dashboard } from './screens/Dashboard'
@@ -27,12 +20,10 @@ import { TrophyCabinet } from './screens/TrophyCabinet'
 import { SeasonRecap } from './screens/SeasonRecap'
 import { Settings } from './screens/Settings'
 import { Privacy } from './screens/Privacy'
-import { Plus } from './screens/Plus'
+import { Terms } from './screens/Terms'
 
 export function App() {
   const loaded = useAppStore((s) => s.loaded)
-  const guestTrial = useAppStore((s) => s.guestTrial)
-  const plusActive = useAppStore((s) => s.plusActive)
   const data = useAppStore((s) => s.data)
   const profile = data.profile
   const init = useAppStore((s) => s.init)
@@ -95,30 +86,15 @@ export function App() {
     )
   }
 
-  // Past the free preview, the app is members-only. The subscribe screen
-  // IS the app until a Plus year is active. Sign-up lives in Onboarding.
-  const plusLocked =
-    !guestTrial &&
-    !plusActive &&
-    (isSupabaseConfigured() ? Boolean(profile) : Boolean(profile && !profile.isDemo))
-
-  if (plusLocked) {
-    return (
-      <>
-        <Plus locked />
-        <JuiceHost />
-      </>
-    )
-  }
-
   // One sign-up path only: Onboarding. Returning users sign in from the
   // welcome screen there — no separate Auth gate before it.
   if (!profile) {
     return (
       <>
         <Routes>
-          {/* Store reviewers open the policy URL cold — no profile needed. */}
+          {/* Store reviewers open policy URLs cold — no profile needed. */}
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
           <Route path="*" element={<Onboarding />} />
         </Routes>
         <JuiceHost />
@@ -142,13 +118,12 @@ export function App() {
         <Route path="/months" element={<Months />} />
         <Route path="/wealth" element={<Wealth />} />
         <Route path="/recap" element={<SeasonRecap />} />
-        <Route path="/plus" element={<Plus />} />
         <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {!fullScreen && <TabBar />}
       <JuiceHost />
-      {guestTrial && <TrialGate />}
     </>
   )
 }
