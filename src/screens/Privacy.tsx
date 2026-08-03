@@ -1,7 +1,7 @@
 /**
  * Privacy policy — required by the app stores. Short and true: PennyPlay
  * keeps money data on the device unless the owner wires up their own
- * Supabase backend; Plus payments go through PayFast.
+ * Supabase backend.
  */
 
 import { Link } from 'react-router-dom'
@@ -24,11 +24,7 @@ const SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: 'Optional cloud sync & accounts',
-    body: 'If the app is connected to a Supabase backend (a setting made by the person who runs this copy of the app), your account and budget data are stored in that database, protected so only your signed-in account can read it. Account signup may include name, surname, username, email and phone. You can delete on-device data at any time by resetting the app.',
-  },
-  {
-    title: 'PennyPlay Plus payments',
-    body: 'Yearly Plus membership is checked out through PayFast (South Africa). PennyPlay does not store your card numbers. PayFast processes the payment and may hold payment details under its own privacy policy. We may keep a record that a payment succeeded so we can unlock your membership year.',
+    body: 'If the app is connected to a Supabase backend (a setting made by the person who runs this copy of the app), your account and budget data are stored in that database, protected so only your signed-in account can read it. Account signup may include name, surname, username, email, phone and date of birth (used only to confirm you are old enough to hold an account). You can delete on-device data at any time by resetting the app.',
   },
   {
     title: 'Hosting',
@@ -65,7 +61,7 @@ export function Privacy() {
         </Link>
         <h1 className="font-display font-extrabold text-2xl">Privacy policy</h1>
       </header>
-      <p className="text-xs text-ink-faint font-bold mb-4">PennyPlay · last updated 15 July 2026</p>
+      <p className="text-xs text-ink-faint font-bold mb-4">PennyPlay · last updated 3 August 2026</p>
 
       <div className="flex flex-col gap-3 pb-8">
         {SECTIONS.map((s) => (

@@ -142,3 +142,12 @@ export function formatMonthLabel(iso: string): string {
   const { y, m } = parseISO(iso)
   return `${MONTHS[m - 1]} ${y}`
 }
+
+/** True when a YYYY-MM-DD date of birth is a real past date at least 18 years ago. */
+export function isAdult(dob: string, today: string = todaySAST()): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return false
+  if (dob >= today) return false
+  const { y, m, d } = parseISO(dob)
+  if (m < 1 || m > 12 || d < 1 || d > daysInMonth(y, m)) return false
+  return dob <= addMonths(today, -216) // 18 years
+}

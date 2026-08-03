@@ -122,12 +122,9 @@ export function Dashboard() {
             <h1 className="font-display font-extrabold text-xl truncate">
               Hi {profile.displayName.split(' ')[0]}
               {profile.isDemo && (
-                <Link
-                  to="/plus"
-                  className="ml-2 text-[10px] align-middle px-2 py-0.5 rounded-full bg-aqua/20 text-aqua font-bold uppercase tracking-wider"
-                >
-                  demo · unlock
-                </Link>
+                <span className="ml-2 text-[10px] align-middle px-2 py-0.5 rounded-full bg-aqua/20 text-aqua font-bold uppercase tracking-wider">
+                  demo
+                </span>
               )}
             </h1>
             <p className="text-[11px] text-ink-faint font-bold">

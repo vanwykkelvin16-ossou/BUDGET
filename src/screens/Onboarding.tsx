@@ -15,8 +15,7 @@ import { useAmountEntry } from '../components/ui/useAmountEntry'
 import { Randy, RandyIcon } from '../components/ui/Randy'
 import { adjustSplit, allocateIncome, DEFAULT_SPLITS } from '../lib/engine/allocate'
 import { isSupabaseConfigured, getSupabaseClient } from '../lib/supabaseClient'
-import { referredBy } from '../lib/referral'
-import { trialState } from '../lib/trial'
+import { isAdult } from '../lib/dates'
 import type { Bucket, BucketSplits } from '../lib/data/types'
 import { formatRands } from '../lib/money'
 
@@ -98,9 +97,9 @@ function authErrorMessage(message: string): string {
 
 export function Onboarding() {
   const createProfile = useAppStore((s) => s.createProfile)
+  const startDemoPreview = useAppStore((s) => s.startDemoPreview)
   const reload = useAppStore((s) => s.reload)
   const needsAccount = isSupabaseConfigured()
-  const trialOver = trialState() === 'expired'
 
   const [step, setStep] = useState<Step>('welcome')
   const [name, setName] = useState('')
@@ -108,6 +107,7 @@ export function Onboarding() {
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  const [dateOfBirth, setDateOfBirth] = useState('')
   const [password, setPassword] = useState('')
   const [payDate, setPayDate] = useState(25)
   const [splits, setSplits] = useState<BucketSplits>(DEFAULT_SPLITS)
@@ -137,6 +137,9 @@ export function Onboarding() {
       if (typeof meta.phone === 'string' && meta.phone) {
         setPhone((current) => current || meta.phone)
       }
+      if (typeof meta.date_of_birth === 'string' && meta.date_of_birth) {
+        setDateOfBirth((current) => current || meta.date_of_birth)
+      }
     })
   }, [needsAccount])
 
@@ -148,8 +151,9 @@ export function Onboarding() {
   const usernameOk = /^[a-zA-Z0-9_.]{3,20}$/.test(username.trim())
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())
   const phoneOk = phone.replace(/\D/g, '').length >= 9
+  const dobOk = dateOfBirth.length > 0 && isAdult(dateOfBirth)
   const passwordOk = !needsAccount || password.length >= 6
-  const signupOk = nameOk && surnameOk && usernameOk && emailOk && phoneOk && passwordOk
+  const signupOk = nameOk && surnameOk && usernameOk && emailOk && phoneOk && dobOk && passwordOk
 
   /** Create the Supabase account once, then continue into salary setup. */
   async function continueFromName() {
@@ -170,7 +174,7 @@ export function Onboarding() {
                 surname: surname.trim(),
                 username: username.trim().toLowerCase(),
                 phone: phone.trim(),
-                referred_by: referredBy() ?? '',
+                date_of_birth: dateOfBirth,
               },
             },
           })
@@ -215,6 +219,7 @@ export function Onboarding() {
         username: username.trim().toLowerCase(),
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
+        dateOfBirth,
         salaryCents: salary.amountCents,
         payDate,
         splits,
@@ -258,23 +263,13 @@ export function Onboarding() {
                   PennyPlay
                 </h1>
                 <p className="text-ink-soft mt-3 max-w-[30ch]">
-                  {trialOver ? (
-                    <>
-                      Your free look around is over! Sign up with{' '}
-                      <b className="text-gold">Randy</b> to keep playing — it takes less than a
-                      minute. 🇿🇦
-                    </>
-                  ) : (
-                    <>
-                      Hey! I'm <b className="text-gold">Randy</b>. Let's make your money fun —
-                      safe-to-spend daily numbers, streaks, quests and real savings. 🇿🇦
-                    </>
-                  )}
+                  Hey! I'm <b className="text-gold">Randy</b>. Let's make your money fun —
+                  safe-to-spend daily numbers, streaks, quests and real savings. 🇿🇦
                 </p>
               </div>
               <div className="w-full flex flex-col gap-3 mt-4">
                 <Button3D size="lg" full onClick={() => setStep('name')}>
-                  {trialOver ? 'Sign up to continue' : 'Set up in 60 seconds'}
+                  Set up in 60 seconds
                 </Button3D>
                 {needsAccount && (
                   <Button3D
@@ -288,6 +283,9 @@ export function Onboarding() {
                     Already have an account? Sign in
                   </Button3D>
                 )}
+                <Button3D variant="ghost" full onClick={() => void startDemoPreview()}>
+                  Try demo mode first
+                </Button3D>
               </div>
             </div>
           )}
@@ -395,6 +393,35 @@ export function Onboarding() {
                 type="tel"
                 hint="at least 9 digits"
               />
+              <label className="block text-left">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-ink-faint mb-1 ml-1">
+                  Date of birth
+                  {dateOfBirth.length > 0 && (
+                    <span className={dobOk ? 'text-lime ml-1.5' : 'text-coral ml-1.5'}>
+                      {dobOk ? '✓' : '· must be 18 or older'}
+                    </span>
+                  )}
+                </p>
+                <div
+                  className={`flex items-center rounded-2xl bg-card border-2 transition-colors ${
+                    dateOfBirth.length > 0 && !dobOk
+                      ? 'border-coral/60'
+                      : dateOfBirth.length > 0
+                        ? 'border-lime/50'
+                        : 'border-edge'
+                  } focus-within:border-accent`}
+                >
+                  <input
+                    type="date"
+                    value={dateOfBirth}
+                    onChange={(e) => setDateOfBirth(e.target.value)}
+                    aria-label="Date of birth"
+                    autoComplete="bday"
+                    max={new Date().toISOString().slice(0, 10)}
+                    className="w-full px-4 py-3 bg-transparent outline-none font-semibold text-ink"
+                  />
+                </div>
+              </label>
               {needsAccount && (
                 <SignupField
                   label="Password"

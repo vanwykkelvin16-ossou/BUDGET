@@ -39,6 +39,7 @@ export function makeDefaultProfile(params: {
   username?: string
   email?: string
   phone?: string
+  dateOfBirth?: string
   salaryCents: number
   payDate: number
   splits?: Profile['splits']
@@ -58,6 +59,7 @@ export function makeDefaultProfile(params: {
     username: params.username ?? '',
     email: params.email ?? '',
     phone: params.phone ?? '',
+    dateOfBirth: params.dateOfBirth ?? '',
     salaryCents: params.salaryCents,
     payDate: params.payDate,
     splits,

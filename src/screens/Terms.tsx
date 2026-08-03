@@ -1,5 +1,5 @@
 /**
- * Terms and Conditions — required for app stores and Plus checkout.
+ * Terms and Conditions — required for app stores.
  * Plain language matched to how PennyPlay actually works.
  */
 
@@ -15,7 +15,7 @@ const SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: 'What PennyPlay is',
-    body: 'PennyPlay is a personal budgeting app for ZAR (South African rand) with game-style features — safe-to-spend numbers, goals, quests, XP and streaks. It is a self-tracking tool only. It is not financial, tax, investment or legal advice, and it is not a bank or payment account.',
+    body: 'PennyPlay is a free personal budgeting app for ZAR (South African rand) with game-style features — safe-to-spend numbers, goals, quests, XP and streaks. It is a self-tracking tool only. It is not financial, tax, investment or legal advice, and it is not a bank or payment account.',
   },
   {
     title: 'How you use it',
@@ -24,10 +24,6 @@ const SECTIONS: { title: string; body: string }[] = [
   {
     title: 'Your data stays local by default',
     body: 'Income, spending, savings and goals you enter are stored on your device unless the copy of the app is connected to a Supabase backend. That optional cloud mode is controlled by whoever runs the deployment — see the Privacy Policy for details.',
-  },
-  {
-    title: 'PennyPlay Plus',
-    body: 'PennyPlay Plus is a paid yearly membership (R200 for twelve months; a referral discount may apply on a first payment). Checkout is through PayFast when merchant keys are configured. There is no auto-renewal — you choose when to pay again. Prices may change for future purchases; an active year already paid stays active until it ends.',
   },
   {
     title: 'Demo mode',
@@ -43,7 +39,7 @@ const SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: 'Ending use',
-    body: 'You can stop using PennyPlay at any time. Profile → Reset all data wipes what the app stores on the device. If you paid for Plus, that membership does not transfer to another product and is not a bank balance.',
+    body: 'You can stop using PennyPlay at any time. Profile → Reset all data wipes what the app stores on the device.',
   },
   {
     title: 'Changes',
@@ -76,7 +72,7 @@ export function Terms() {
         </Link>
         <h1 className="font-display font-extrabold text-2xl">Terms &amp; conditions</h1>
       </header>
-      <p className="text-xs text-ink-faint font-bold mb-4">PennyPlay · last updated 15 July 2026</p>
+      <p className="text-xs text-ink-faint font-bold mb-4">PennyPlay · last updated 3 August 2026</p>
 
       <div className="flex flex-col gap-3 pb-8">
         {SECTIONS.map((s) => (

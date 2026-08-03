@@ -27,8 +27,6 @@ import { LocalStore } from '../lib/data/store'
 import { getDataStore } from '../lib/data'
 import { DEFAULT_CATEGORIES, makeDefaultProfile } from '../lib/data/defaults'
 import { buildDemoData } from '../lib/data/seedDemo'
-import { loadMembership, membershipStatus } from '../lib/membership'
-import { clearTrialData, expireTrial, TRIAL_DATA_KEY, trialState } from '../lib/trial'
 import { uid } from '../lib/id'
 import { addDays, diffDays, todaySAST, weekBounds } from '../lib/dates'
 import {
@@ -66,24 +64,21 @@ interface AppState {
   loaded: boolean
   /** Supabase mode only: configured but no session yet. */
   needsAuth: boolean
-  /** First-time visitor exploring the free 45-second guest preview. */
-  guestTrial: boolean
-  /** An active PennyPlay Plus year on this device/account. */
-  plusActive: boolean
+  /** Exploring a seeded sandbox before signing up — not the real data. */
+  demoPreview: boolean
   /** SAST day the in-memory state was last computed for. */
   currentDay: string
   init: () => Promise<void>
   reload: () => Promise<void>
-  /** The 45s preview ran out (or the guest opted out) — on to sign-up. */
-  endGuestTrial: () => void
-  /** Re-read membership state (after a payment lands). */
-  refreshPlus: () => void
+  /** Try the app with sample data before creating an account. */
+  startDemoPreview: () => Promise<void>
   createProfile: (params: {
     displayName: string
     surname: string
     username: string
     email: string
     phone: string
+    dateOfBirth: string
     salaryCents: number
     payDate: number
     splits: Profile['splits']
@@ -127,9 +122,12 @@ interface AppState {
   resetAll: () => Promise<void>
 }
 
-// Mutable: the guest preview swaps in a sandboxed LocalStore so demo data
+// Mutable: the demo preview swaps in a sandboxed LocalStore so demo data
 // never touches the real data key (or a Supabase sync queue).
 let store: DataStore = getDataStore()
+
+/** Sandboxed storage key for the pre-signup demo preview — never the real data key. */
+const DEMO_DATA_KEY = 'pennyplay:demo-data:v1'
 
 const nowISO = () => new Date().toISOString()
 
@@ -372,13 +370,13 @@ export const useAppStore = create<AppState>((set, get) => {
     set({ data: reconcile(synced, today) })
   }
 
-  /** Guest preview: park the app in a seeded sandbox — no sign-up needed. */
-  async function startGuestTrial() {
-    store = new LocalStore(TRIAL_DATA_KEY)
+  /** Demo preview: park the app in a seeded sandbox — no sign-up needed. */
+  async function startDemoPreview() {
+    store = new LocalStore(DEMO_DATA_KEY)
     const resumed = await store.load()
     const base = resumed?.profile ? resumed : buildDemoData()
     const data = runHousekeeping(base, todaySAST(), nowISO())
-    set({ loaded: true, needsAuth: false, guestTrial: true, data })
+    set({ loaded: true, needsAuth: false, demoPreview: true, data })
     const synced = await store.persist(data)
     set({ data: reconcile(synced, todaySAST()) })
   }
@@ -387,57 +385,33 @@ export const useAppStore = create<AppState>((set, get) => {
     data: emptyAppData(),
     loaded: false,
     needsAuth: false,
-    guestTrial: false,
-    plusActive: membershipStatus(loadMembership()) === 'active',
+    demoPreview: false,
     currentDay: todaySAST(),
 
     init: async () => {
       if (get().loaded) return
       store = getDataStore()
-      const plusActive = membershipStatus(loadMembership()) === 'active'
       const stored = await store.load()
       if (!stored?.profile) {
-        const signedIn = store.kind === 'supabase' && Boolean(await store.userId?.())
-        // Brand-new visitor (no account, no profile): a free 45-second
-        // look around the app before any sign-up is asked for.
-        if (!signedIn && trialState() !== 'expired') {
-          set({ plusActive })
-          await startGuestTrial()
-          return
-        }
-        // No profile yet → Onboarding (sign-up lives there). Returning users
-        // sign in from the welcome screen; we never gate on a separate Auth page.
-        set({ loaded: true, needsAuth: false, guestTrial: false, plusActive, data: stored ?? emptyAppData() })
+        // No profile yet → Onboarding (sign-up lives there, plus a "try demo
+        // mode" option). Returning users sign in from the welcome screen;
+        // we never gate on a separate Auth page.
+        set({ loaded: true, needsAuth: false, demoPreview: false, data: stored ?? emptyAppData() })
         return
       }
       const data = runHousekeeping(stored, todaySAST(), nowISO())
       setSoundEnabled(data.profile?.soundEnabled ?? true)
-      set({ loaded: true, needsAuth: false, guestTrial: false, plusActive, data })
+      set({ loaded: true, needsAuth: false, demoPreview: false, data })
       const synced = await store.persist(data)
       set({ data: reconcile(synced, todaySAST()) })
     },
 
     reload: async () => {
-      set({ loaded: false, needsAuth: false, guestTrial: false, data: emptyAppData() })
+      set({ loaded: false, needsAuth: false, demoPreview: false, data: emptyAppData() })
       await get().init()
     },
 
-    endGuestTrial: () => {
-      expireTrial()
-      clearTrialData()
-      store = getDataStore()
-      // Always land on Onboarding — sign-up and returning sign-in live there.
-      set({
-        guestTrial: false,
-        loaded: true,
-        needsAuth: false,
-        data: emptyAppData(),
-      })
-    },
-
-    refreshPlus: () => {
-      set({ plusActive: membershipStatus(loadMembership()) === 'active' })
-    },
+    startDemoPreview,
 
     createProfile: async (params) => {
       if (!splitsAreValid(params.splits)) throw new Error('Splits must sum to 100')
@@ -448,6 +422,7 @@ export const useAppStore = create<AppState>((set, get) => {
         username: params.username,
         email: params.email,
         phone: params.phone,
+        dateOfBirth: params.dateOfBirth,
         salaryCents: params.salaryCents,
         payDate: params.payDate,
         splits: params.splits,
@@ -957,9 +932,8 @@ export const useAppStore = create<AppState>((set, get) => {
 
     resetAll: async () => {
       await store.clear()
-      if (get().guestTrial) {
-        // Resetting inside the guest preview spends it — sign-up is next.
-        expireTrial()
+      if (get().demoPreview) {
+        // Resetting inside the demo preview ends it — sign-up is next.
         store = getDataStore()
       }
       useJuiceStore.getState().clear()
@@ -967,9 +941,8 @@ export const useAppStore = create<AppState>((set, get) => {
       set({
         data: emptyAppData(),
         loaded: true,
-        guestTrial: false,
+        demoPreview: false,
         needsAuth: false,
-        plusActive: membershipStatus(loadMembership()) === 'active',
       })
     },
   }
