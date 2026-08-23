@@ -84,6 +84,11 @@ export function WhatPennyPlayDoes({ className = '' }: { className?: string }) {
           </motion.li>
         ))}
       </ul>
+
+      {/* Carried over from the original pitch — the promise that earns the sign-up. */}
+      <p className="text-[11px] leading-snug text-ink-faint text-center mt-3 px-2">
+        Your numbers live on your phone, work offline, and never need a bank login.
+      </p>
     </section>
   )
 }
