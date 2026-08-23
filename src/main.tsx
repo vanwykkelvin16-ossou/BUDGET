@@ -14,6 +14,11 @@ import '@fontsource/baloo-2/latin-800.css'
 import './styles/theme.css'
 
 import { App } from './App'
+import { watchInstallPrompt } from './lib/installPrompt'
+
+// Chrome fires `beforeinstallprompt` before React mounts — park it now so the
+// "add to home screen" button can replay it later.
+watchInstallPrompt()
 
 // The single-file preview build runs from a static page with no server-side
 // route rewriting, so it uses hash routing instead of history routing.

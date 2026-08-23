@@ -1,7 +1,7 @@
 /**
  * First-run onboarding — the ONE sign-up path. Profile + account are created
  * here (no separate Auth screen before it). Returning users tap “Sign in”
- * on the welcome step; everyone else sets up in ~60 seconds.
+ * on the welcome step; everyone else sets up in ~30 seconds.
  */
 
 import { useEffect, useState } from 'react'
@@ -13,6 +13,7 @@ import { Card } from '../components/ui/Card'
 import { NumberPad } from '../components/ui/NumberPad'
 import { useAmountEntry } from '../components/ui/useAmountEntry'
 import { Randy, RandyIcon } from '../components/ui/Randy'
+import { InstallAppButton } from '../components/ui/InstallAppButton'
 import { adjustSplit, allocateIncome, DEFAULT_SPLITS } from '../lib/engine/allocate'
 import { isSupabaseConfigured, getSupabaseClient } from '../lib/supabaseClient'
 import { isAdult } from '../lib/dates'
@@ -24,6 +25,30 @@ type Step = 'welcome' | 'signin' | 'name' | 'salary' | 'payDate' | 'splits' | 'd
 const STEP_ORDER: Step[] = ['welcome', 'name', 'salary', 'payDate', 'splits', 'done']
 /** Steps that show progress dots (everything between welcome and done). */
 const DOT_STEPS = STEP_ORDER.length - 2
+
+/** The "what is this thing" pitch on the welcome step. */
+const WELCOME_FEATURES: { icon: string; title: string; blurb: string }[] = [
+  {
+    icon: '💸',
+    title: 'Safe-to-spend today',
+    blurb: 'one honest number for the day, once bills and savings are set aside',
+  },
+  {
+    icon: '📆',
+    title: 'Payday to payday',
+    blurb: 'your month starts when the salary lands, not on the 1st',
+  },
+  {
+    icon: '🔥',
+    title: 'Streaks, quests & XP',
+    blurb: 'logging what you spend earns levels, badges and bragging rights',
+  },
+  {
+    icon: '🎯',
+    title: 'Savings goals that move',
+    blurb: 'set a goal, auto-save a slice each payday, watch it climb',
+  },
+]
 
 const BUCKET_META: Record<Bucket, { label: string; blurb: string; barClass: string }> = {
   need: { label: 'Needs', blurb: 'rent, groceries, transport', barClass: 'accent-violet' },
@@ -257,19 +282,44 @@ export function Onboarding() {
         >
           {step === 'welcome' && (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-5">
-              <Randy mood="celebrating" size={170} className="animate-pop-in" />
+              <Randy mood="celebrating" size={150} className="animate-pop-in" />
               <div>
                 <h1 className="font-display font-extrabold text-4xl text-gradient-violet">
                   PennyPlay
                 </h1>
-                <p className="text-ink-soft mt-3 max-w-[30ch]">
-                  Hey! I'm <b className="text-gold">Randy</b>. Let's make your money fun —
-                  safe-to-spend daily numbers, streaks, quests and real savings. 🇿🇦
+                <p className="text-ink-soft mt-3 max-w-[32ch]">
+                  Hey! I'm <b className="text-gold">Randy</b>. I turn your salary into a budget
+                  that plays like a game — so sticking to it actually sticks. 🇿🇦
                 </p>
               </div>
-              <div className="w-full flex flex-col gap-3 mt-4">
+
+              {/* What the app actually does, before we ask for anything. */}
+              <Card className="w-full text-left py-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-ink-faint mb-2">
+                  What PennyPlay does
+                </p>
+                <ul className="flex flex-col gap-2.5">
+                  {WELCOME_FEATURES.map((feature) => (
+                    <li key={feature.title} className="flex items-start gap-2.5">
+                      <span aria-hidden className="text-lg leading-none mt-0.5">
+                        {feature.icon}
+                      </span>
+                      <span className="text-sm">
+                        <b className="font-display font-extrabold">{feature.title}</b>
+                        <span className="text-ink-soft"> — {feature.blurb}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-ink-faint text-[11px] mt-3">
+                  Built for South African rands. Your numbers live on your phone, no bank login
+                  and no ads — ever.
+                </p>
+              </Card>
+
+              <div className="w-full flex flex-col gap-3">
                 <Button3D size="lg" full onClick={() => setStep('name')}>
-                  Set up in 60 seconds
+                  Set up in 30 seconds
                 </Button3D>
                 {needsAccount && (
                   <Button3D
@@ -287,6 +337,15 @@ export function Onboarding() {
                   Try demo mode first
                 </Button3D>
               </div>
+
+              <div className="w-full flex items-center gap-3 mt-1">
+                <span className="h-px flex-1 bg-edge" />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-ink-faint">
+                  Keep it one tap away
+                </span>
+                <span className="h-px flex-1 bg-edge" />
+              </div>
+              <InstallAppButton />
             </div>
           )}
 
