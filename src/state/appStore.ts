@@ -393,6 +393,14 @@ export const useAppStore = create<AppState>((set, get) => {
       store = getDataStore()
       const stored = await store.load()
       if (!stored?.profile) {
+        // A demo sandbox left from an earlier visit resumes, so refreshing
+        // (or reopening the PWA) mid-explore doesn't dump you back on the
+        // welcome screen. "Exit demo & start fresh" clears it for good.
+        const parked = await new LocalStore(DEMO_DATA_KEY).load()
+        if (parked?.profile) {
+          await startDemoPreview()
+          return
+        }
         // No profile yet → Onboarding (sign-up lives there, plus a "try demo
         // mode" option). Returning users sign in from the welcome screen;
         // we never gate on a separate Auth page.
