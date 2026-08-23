@@ -1,7 +1,7 @@
 /**
  * First-run onboarding — the ONE sign-up path. Profile + account are created
  * here (no separate Auth screen before it). Returning users tap “Sign in”
- * on the welcome step; everyone else sets up in ~60 seconds.
+ * on the welcome step; everyone else sets up in ~30 seconds.
  */
 
 import { useEffect, useState } from 'react'
@@ -13,6 +13,7 @@ import { Card } from '../components/ui/Card'
 import { NumberPad } from '../components/ui/NumberPad'
 import { useAmountEntry } from '../components/ui/useAmountEntry'
 import { Randy, RandyIcon } from '../components/ui/Randy'
+import { InstallAppButton } from '../components/ui/InstallAppButton'
 import { WhatPennyPlayDoes } from '../components/onboarding/WhatPennyPlayDoes'
 import { adjustSplit, allocateIncome, DEFAULT_SPLITS } from '../lib/engine/allocate'
 import { isSupabaseConfigured, getSupabaseClient } from '../lib/supabaseClient'
@@ -289,10 +290,10 @@ export function Onboarding() {
                 </span>
                 <div className="w-full mt-1">
                   <Button3D size="lg" full onClick={() => setStep('name')}>
-                    Set up in 60 seconds
+                    Set up in 30 seconds
                   </Button3D>
                   <p className="text-[11px] font-bold text-ink-faint mt-2.5">
-                    Free forever · no card needed · works offline
+                    Free forever · no bank login · no ads, ever
                   </p>
                 </div>
               </header>
@@ -320,6 +321,18 @@ export function Onboarding() {
                 >
                   Just show me around first
                 </button>
+              </div>
+
+              {/* Install prompt keeps the same hairline-rule eyebrow as the pitch above. */}
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="h-px flex-1 bg-gradient-to-r from-transparent to-edge-strong" />
+                  <span className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-ink-faint whitespace-nowrap">
+                    Keep it one tap away
+                  </span>
+                  <span className="h-px flex-1 bg-gradient-to-l from-transparent to-edge-strong" />
+                </div>
+                <InstallAppButton />
               </div>
             </div>
           )}
