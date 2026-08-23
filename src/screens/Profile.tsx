@@ -26,6 +26,7 @@ import {
   showSystemNotification,
   type NotificationPrefs,
 } from '../lib/notifications'
+import { subscribeToPush, unsubscribeFromPush } from '../lib/push'
 
 const PHASE2 = [
   { icon: '📄', title: 'Bank statement import', blurb: 'Drop a CSV, get everything categorised.' },
@@ -61,6 +62,13 @@ export function Profile() {
     }
     setNotifyPrefs(next)
     saveNotificationPrefs(next)
+
+    // Nudges that arrive while the app is closed need a push subscription;
+    // switching them off should stop those too, not just the in-app ones.
+    if (patch.enabled !== undefined) {
+      if (next.enabled) void subscribeToPush()
+      else void unsubscribeFromPush()
+    }
   }
 
   async function sendTestNotification() {

@@ -29,3 +29,13 @@ secret = ""
 
 [functions.award-xp]
 verify_jwt = true
+
+# Hands the browser the VAPID public key (and mints the keypair on first
+# call). Public by design — the key is meant to ship in the client bundle.
+[functions.push-key]
+verify_jwt = false
+
+# Called by Postgres (pg_cron), not a signed-in user, so it authenticates
+# with the shared token in push_config rather than a JWT.
+[functions.push-weekly]
+verify_jwt = false

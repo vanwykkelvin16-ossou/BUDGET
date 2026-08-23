@@ -45,6 +45,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         // Hash routing means the only document is index.html.
         navigateFallback: null,
+        // Web Push handlers live outside the generated worker.
+        importScripts: ['push-sw.js'],
       },
     }),
   ],
