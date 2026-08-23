@@ -13,6 +13,7 @@ import { Card } from '../components/ui/Card'
 import { NumberPad } from '../components/ui/NumberPad'
 import { useAmountEntry } from '../components/ui/useAmountEntry'
 import { Randy, RandyIcon } from '../components/ui/Randy'
+import { WhatPennyPlayDoes } from '../components/onboarding/WhatPennyPlayDoes'
 import { adjustSplit, allocateIncome, DEFAULT_SPLITS } from '../lib/engine/allocate'
 import { isSupabaseConfigured, getSupabaseClient } from '../lib/supabaseClient'
 import { isAdult } from '../lib/dates'
@@ -266,21 +267,40 @@ export function Onboarding() {
           className="flex-1 flex flex-col"
         >
           {step === 'welcome' && (
-            <div className="flex-1 flex flex-col items-center justify-center text-center gap-5">
-              <Randy mood="celebrating" size={170} className="animate-pop-in" />
-              <div>
-                <h1 className="font-display font-extrabold text-4xl text-gradient-violet">
-                  PennyPlay
-                </h1>
-                <p className="text-ink-soft mt-3 max-w-[30ch]">
-                  Hey! I'm <b className="text-gold">Randy</b>. Let's make your money fun —
-                  safe-to-spend daily numbers, streaks, quests and real savings. 🇿🇦
-                </p>
-              </div>
-              <div className="w-full flex flex-col gap-3 mt-4">
-                <Button3D size="lg" full onClick={() => setStep('name')}>
-                  Set up in 60 seconds
-                </Button3D>
+            <div className="flex-1 flex flex-col gap-8 pt-2">
+              {/* Hero — mascot, promise, and the one button that matters. */}
+              <header className="flex flex-col items-center text-center gap-4">
+                <Randy mood="celebrating" size={132} className="animate-pop-in" />
+                <div>
+                  <h1 className="font-display font-extrabold text-[42px] leading-none text-gradient-violet">
+                    PennyPlay
+                  </h1>
+                  <p className="text-ink-soft mt-3 max-w-[32ch] mx-auto leading-snug">
+                    Budgeting that plays like a game. I'm{' '}
+                    <b className="text-gradient-gold">Randy</b> — I do the maths, you live
+                    your life.
+                  </p>
+                </div>
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full border border-edge
+                             bg-card/70 px-3 py-1 text-[11px] font-bold text-ink-soft"
+                >
+                  🇿🇦 Built for South African rands
+                </span>
+                <div className="w-full mt-1">
+                  <Button3D size="lg" full onClick={() => setStep('name')}>
+                    Set up in 60 seconds
+                  </Button3D>
+                  <p className="text-[11px] font-bold text-ink-faint mt-2.5">
+                    Free forever · no card needed · works offline
+                  </p>
+                </div>
+              </header>
+
+              <WhatPennyPlayDoes />
+
+              {/* Everything else is deliberately quiet — one loud button per screen. */}
+              <div className="flex flex-col gap-2.5">
                 {needsAccount && (
                   <Button3D
                     variant="ghost"
@@ -293,9 +313,13 @@ export function Onboarding() {
                     Already have an account? Sign in
                   </Button3D>
                 )}
-                <Button3D variant="ghost" full onClick={() => void startDemoPreview()}>
-                  Try demo mode first
-                </Button3D>
+                <button
+                  onClick={() => void startDemoPreview()}
+                  className="w-full py-2 text-sm font-bold text-ink-faint underline
+                             decoration-edge-strong underline-offset-4 active:text-ink-soft"
+                >
+                  Just show me around first
+                </button>
               </div>
             </div>
           )}
