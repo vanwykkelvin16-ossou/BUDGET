@@ -76,6 +76,43 @@ Security model:
 - **XP can't be gamed from the client**: `xp_events` has no client insert policy. XP is written only by `security definer` DB triggers (expense/contribution) and the `award-xp` edge function, which re-verifies day-close awards, no-spend days and quest claims server-side. Every award is idempotent via `(user_id, ref_id)`.
 - New signups get a profile + default categories via an `auth.users` trigger.
 
+## Notifications
+
+Two different mechanisms, because they solve different problems:
+
+**Local notifications** (`src/lib/notifications.ts`) fire while the app is
+open — daily log reminder, payday, overspend warning, streak-at-risk, and
+the welcome greeting on sign-up. No backend involved. Off until the user
+grants permission; sign-up asks, and Profile has the toggles.
+
+**Web Push** (`src/lib/push.ts` + `public/push-sw.js`) reaches people who
+have stopped opening the app. Sign-up registers the browser, and a weekly
+job nudges anyone whose `last_log_date` is over 7 days old:
+
+```
+pg_cron (Sun 16:00 UTC / 18:00 SAST)
+  └─ public.run_weekly_push()      reads the shared token from push_config
+       └─ pg_net POST → push-weekly edge function
+            └─ VAPID-signed POST → each browser's push service
+                 └─ push-sw.js shows the notification
+```
+
+The nudge is sent **without a payload** — encrypting one buys nothing when
+the copy is generic, and a bare push has far fewer ways to fail. The
+wording therefore lives in `public/push-sw.js`, not on the server.
+
+The VAPID keypair is minted by the `push-key` function on first call and
+stored in `push_config` (service role only, no client policies), so the
+private key never has to be pasted anywhere. To test a send immediately:
+
+```sql
+select public.run_weekly_push(true);  -- true = ignore the 7-day filter
+```
+
+**iOS caveat:** Safari only grants push to a PWA the user has added to
+their Home Screen. In a normal iPhone tab `subscribeToPush()` returns
+false and the app quietly falls back to local notifications only.
+
 ## Phase 2 (designed, stubbed in Profile → Coming soon)
 
 Push-notification nudges · CSV bank statement import · Partner/shared budgets.

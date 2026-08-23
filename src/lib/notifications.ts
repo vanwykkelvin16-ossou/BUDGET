@@ -200,6 +200,28 @@ export async function showSystemNotification(alert: AppAlert): Promise<boolean> 
   }
 }
 
+/**
+ * One-time hello the moment an account is created.
+ *
+ * Sign-up is the natural place to ask for notification permission — the
+ * user has just committed to the app — so this asks, then greets. A
+ * refusal is fine and silent: the app works the same without it.
+ */
+export async function welcomeNewUser(firstName: string): Promise<boolean> {
+  if (!(await ensureNotificationPermission())) return false
+
+  // Permission granted, so switch the nudges on rather than making the
+  // user find the toggle in Profile.
+  const prefs = loadNotificationPrefs()
+  if (!prefs.enabled) saveNotificationPrefs({ ...prefs, enabled: true })
+
+  return showSystemNotification({
+    key: 'welcome',
+    title: `Welcome to PennyPlay, ${firstName}! 🪙`,
+    body: "I'm Randy. Log your first expense and I'll show you what's safe to spend today.",
+  })
+}
+
 function loadSent(): Record<string, string> {
   try {
     return JSON.parse(localStorage.getItem(SENT_KEY) ?? '{}') as Record<string, string>
