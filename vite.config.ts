@@ -55,6 +55,8 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: '/index.html',
+        // Web Push handlers live outside the generated worker.
+        importScripts: ['push-sw.js'],
       },
     }),
   ],

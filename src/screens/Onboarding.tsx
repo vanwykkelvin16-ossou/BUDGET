@@ -16,6 +16,8 @@ import { Randy, RandyIcon } from '../components/ui/Randy'
 import { adjustSplit, allocateIncome, DEFAULT_SPLITS } from '../lib/engine/allocate'
 import { isSupabaseConfigured, getSupabaseClient } from '../lib/supabaseClient'
 import { isAdult } from '../lib/dates'
+import { welcomeNewUser } from '../lib/notifications'
+import { subscribeToPush } from '../lib/push'
 import type { Bucket, BucketSplits } from '../lib/data/types'
 import { formatRands } from '../lib/money'
 
@@ -212,6 +214,11 @@ export function Onboarding() {
     if (busy) return
     setBusy(true)
     setError(null)
+
+    // Kick the permission prompt off before the await: requestPermission()
+    // needs the tap's user activation, which createProfile can outlive.
+    const greeting = welcomeNewUser(name.trim().split(' ')[0] || 'friend')
+
     try {
       await createProfile({
         displayName: name.trim() || 'You',
@@ -224,6 +231,9 @@ export function Onboarding() {
         payDate,
         splits,
       })
+      // The account exists now, so this browser can be registered for the
+      // weekly nudge. Only worth doing if they allowed notifications.
+      if (await greeting) void subscribeToPush()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
       setBusy(false)
