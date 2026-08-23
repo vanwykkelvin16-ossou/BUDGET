@@ -8,7 +8,13 @@ interface Props {
   children: ReactNode
 }
 
-/** Bottom sheet that springs up from the tab bar. */
+/**
+ * Bottom sheet that springs up from the tab bar.
+ *
+ * The sheet stays fully on screen in the installed PWA: it never grows past
+ * the notch at the top, and its bottom padding clears the home indicator so
+ * the last button in a sheet is always tappable.
+ */
 export function Sheet({ open, onClose, title, children }: Props) {
   return (
     <AnimatePresence>
@@ -23,8 +29,10 @@ export function Sheet({ open, onClose, title, children }: Props) {
           />
           <motion.div
             className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-md
-                       bg-card border-t-2 border-x border-edge rounded-t-[28px] p-5
-                       max-h-[85dvh] overflow-y-auto no-scrollbar"
+                       bg-card border-t-2 border-x border-edge rounded-t-[28px]
+                       px-5 pt-5 pb-[max(env(safe-area-inset-bottom),20px)]
+                       max-h-[calc(100dvh_-_max(env(safe-area-inset-top),16px))]
+                       overflow-y-auto overscroll-contain no-scrollbar"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}

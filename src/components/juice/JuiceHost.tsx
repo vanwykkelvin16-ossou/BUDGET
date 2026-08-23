@@ -196,8 +196,13 @@ export function JuiceHost() {
 
   return (
     <>
-      {/* XP / badge toasts */}
-      <div className="fixed top-4 inset-x-0 z-[60] flex flex-col items-center gap-2 pointer-events-none">
+      {/* XP / badge toasts — pushed clear of the notch/status bar so the
+          installed PWA never clips them against the top of the screen. */}
+      <div
+        className="fixed inset-x-0 z-[60] flex flex-col items-center gap-2 pointer-events-none
+                   top-[max(env(safe-area-inset-top),12px)]
+                   pl-[max(env(safe-area-inset-left),16px)] pr-[max(env(safe-area-inset-right),16px)]"
+      >
         <AnimatePresence>
           {toasts.map((toast) => (
             <motion.div
@@ -206,7 +211,8 @@ export function JuiceHost() {
               animate={{ y: 0, opacity: 1, scale: 1 }}
               exit={{ y: -20, opacity: 0, scale: 0.9 }}
               transition={{ type: 'spring', stiffness: 400, damping: 22 }}
-              className={`px-4 py-2 rounded-full font-display font-extrabold text-sm ${toneClasses[toast.tone]}`}
+              className={`max-w-full px-4 py-2 rounded-[999px] text-center leading-snug break-words
+                          font-display font-extrabold text-sm ${toneClasses[toast.tone]}`}
             >
               {toast.content}
             </motion.div>
@@ -218,17 +224,24 @@ export function JuiceHost() {
       <AnimatePresence>
         {overlay && (
           <motion.div
-            className="fixed inset-0 z-[70] bg-black/80 flex items-center justify-center p-6"
+            className="fixed inset-0 z-[70] bg-black/80 flex justify-center
+                       overflow-y-auto overscroll-contain
+                       pl-[max(env(safe-area-inset-left),16px)] pr-[max(env(safe-area-inset-right),16px)]
+                       pt-[max(env(safe-area-inset-top),20px)]
+                       pb-[max(env(safe-area-inset-bottom),20px)]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
+            {/* my-auto centres the card when it fits and lets the overlay scroll
+                when it does not — the Continue button stays reachable on short
+                screens and in landscape. */}
             <motion.div
               initial={{ scale: 0.5, y: 40 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.8, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 260, damping: 18 }}
-              className="bg-card border-2 border-edge border-b-8 border-b-edge-strong rounded-[28px]
+              className="my-auto bg-card border-2 border-edge border-b-8 border-b-edge-strong rounded-[28px]
                          p-8 max-w-sm w-full text-center flex flex-col items-center gap-4"
             >
               {overlay.kind === 'levelup' && (
