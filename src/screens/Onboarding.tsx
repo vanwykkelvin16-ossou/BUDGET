@@ -14,6 +14,7 @@ import { NumberPad } from '../components/ui/NumberPad'
 import { useAmountEntry } from '../components/ui/useAmountEntry'
 import { Randy, RandyIcon } from '../components/ui/Randy'
 import { InstallAppButton } from '../components/ui/InstallAppButton'
+import { WhatPennyPlayDoes } from '../components/onboarding/WhatPennyPlayDoes'
 import { adjustSplit, allocateIncome, DEFAULT_SPLITS } from '../lib/engine/allocate'
 import { isSupabaseConfigured, getSupabaseClient } from '../lib/supabaseClient'
 import { isAdult } from '../lib/dates'
@@ -27,30 +28,6 @@ type Step = 'welcome' | 'signin' | 'name' | 'salary' | 'payDate' | 'splits' | 'd
 const STEP_ORDER: Step[] = ['welcome', 'name', 'salary', 'payDate', 'splits', 'done']
 /** Steps that show progress dots (everything between welcome and done). */
 const DOT_STEPS = STEP_ORDER.length - 2
-
-/** The "what is this thing" pitch on the welcome step. */
-const WELCOME_FEATURES: { icon: string; title: string; blurb: string }[] = [
-  {
-    icon: '💸',
-    title: 'Safe-to-spend today',
-    blurb: 'one honest number for the day, once bills and savings are set aside',
-  },
-  {
-    icon: '📆',
-    title: 'Payday to payday',
-    blurb: 'your month starts when the salary lands, not on the 1st',
-  },
-  {
-    icon: '🔥',
-    title: 'Streaks, quests & XP',
-    blurb: 'logging what you spend earns levels, badges and bragging rights',
-  },
-  {
-    icon: '🎯',
-    title: 'Savings goals that move',
-    blurb: 'set a goal, auto-save a slice each payday, watch it climb',
-  },
-]
 
 const BUCKET_META: Record<Bucket, { label: string; blurb: string; barClass: string }> = {
   need: { label: 'Needs', blurb: 'rent, groceries, transport', barClass: 'accent-violet' },
@@ -291,46 +268,40 @@ export function Onboarding() {
           className="flex-1 flex flex-col"
         >
           {step === 'welcome' && (
-            <div className="flex-1 flex flex-col items-center justify-center text-center gap-5">
-              <Randy mood="celebrating" size={150} className="animate-pop-in" />
-              <div>
-                <h1 className="font-display font-extrabold text-4xl text-gradient-violet">
-                  PennyPlay
-                </h1>
-                <p className="text-ink-soft mt-3 max-w-[32ch]">
-                  Hey! I'm <b className="text-gold">Randy</b>. I turn your salary into a budget
-                  that plays like a game — so sticking to it actually sticks. 🇿🇦
-                </p>
-              </div>
+            <div className="flex-1 flex flex-col gap-8 pt-2">
+              {/* Hero — mascot, promise, and the one button that matters. */}
+              <header className="flex flex-col items-center text-center gap-4">
+                <Randy mood="celebrating" size={132} className="animate-pop-in" />
+                <div>
+                  <h1 className="font-display font-extrabold text-[42px] leading-none text-gradient-violet">
+                    PennyPlay
+                  </h1>
+                  <p className="text-ink-soft mt-3 max-w-[32ch] mx-auto leading-snug">
+                    Budgeting that plays like a game. I'm{' '}
+                    <b className="text-gradient-gold">Randy</b> — I do the maths, you live
+                    your life.
+                  </p>
+                </div>
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full border border-edge
+                             bg-card/70 px-3 py-1 text-[11px] font-bold text-ink-soft"
+                >
+                  🇿🇦 Built for South African rands
+                </span>
+                <div className="w-full mt-1">
+                  <Button3D size="lg" full onClick={() => setStep('name')}>
+                    Set up in 30 seconds
+                  </Button3D>
+                  <p className="text-[11px] font-bold text-ink-faint mt-2.5">
+                    Free forever · no bank login · no ads, ever
+                  </p>
+                </div>
+              </header>
 
-              {/* What the app actually does, before we ask for anything. */}
-              <Card className="w-full text-left py-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-ink-faint mb-2">
-                  What PennyPlay does
-                </p>
-                <ul className="flex flex-col gap-2.5">
-                  {WELCOME_FEATURES.map((feature) => (
-                    <li key={feature.title} className="flex items-start gap-2.5">
-                      <span aria-hidden className="text-lg leading-none mt-0.5">
-                        {feature.icon}
-                      </span>
-                      <span className="text-sm">
-                        <b className="font-display font-extrabold">{feature.title}</b>
-                        <span className="text-ink-soft"> — {feature.blurb}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <p className="text-ink-faint text-[11px] mt-3">
-                  Built for South African rands. Your numbers live on your phone, no bank login
-                  and no ads — ever.
-                </p>
-              </Card>
+              <WhatPennyPlayDoes />
 
-              <div className="w-full flex flex-col gap-3">
-                <Button3D size="lg" full onClick={() => setStep('name')}>
-                  Set up in 30 seconds
-                </Button3D>
+              {/* Everything else is deliberately quiet — one loud button per screen. */}
+              <div className="flex flex-col gap-2.5">
                 {needsAccount && (
                   <Button3D
                     variant="ghost"
@@ -343,19 +314,26 @@ export function Onboarding() {
                     Already have an account? Sign in
                   </Button3D>
                 )}
-                <Button3D variant="ghost" full onClick={() => void startDemoPreview()}>
-                  Try demo mode first
-                </Button3D>
+                <button
+                  onClick={() => void startDemoPreview()}
+                  className="w-full py-2 text-sm font-bold text-ink-faint underline
+                             decoration-edge-strong underline-offset-4 active:text-ink-soft"
+                >
+                  Just show me around first
+                </button>
               </div>
 
-              <div className="w-full flex items-center gap-3 mt-1">
-                <span className="h-px flex-1 bg-edge" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-ink-faint">
-                  Keep it one tap away
-                </span>
-                <span className="h-px flex-1 bg-edge" />
+              {/* Install prompt keeps the same hairline-rule eyebrow as the pitch above. */}
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="h-px flex-1 bg-gradient-to-r from-transparent to-edge-strong" />
+                  <span className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-ink-faint whitespace-nowrap">
+                    Keep it one tap away
+                  </span>
+                  <span className="h-px flex-1 bg-gradient-to-l from-transparent to-edge-strong" />
+                </div>
+                <InstallAppButton />
               </div>
-              <InstallAppButton />
             </div>
           )}
 
